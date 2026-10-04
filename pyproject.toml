@@ -1,0 +1,30 @@
+[project]
+name = "polymarket-bond-hype"
+version = "0.1.0"
+description = "Forward test of the Polymarket bond and hype strategies (paper trading only)"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "boto3>=1.34",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bondhype"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

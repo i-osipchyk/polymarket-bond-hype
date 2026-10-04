@@ -1,0 +1,17 @@
+version: "2026-10-04.1"
+bond:
+  price_min: 0.90
+  price_max: 0.95
+  days_to_resolution_min: 1
+  days_to_resolution_max: 14
+  liquidity_multiple: 3
+  max_spread: 0.02
+  min_total_volume_usd: 2000
+hype:
+  yes_price_min: 0.05
+  yes_price_max: 0.25
+  days_to_resolution_min: 1
+  days_to_resolution_max: 14
+  liquidity_multiple: 3
+  max_spread: 0.03
+  min_total_volume_usd: 2000
