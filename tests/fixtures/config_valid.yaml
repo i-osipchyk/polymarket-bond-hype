@@ -1,6 +1,12 @@
 version: "2026-10-04.1"
 order_size_usd: 10
 prescreen_price_margin: 0.03
+portfolio:
+  starting_balance_usd: 1000
+  max_positions_per_event: 5
+  max_deployed_fraction: 0.30
+  cooldown_hours: 24
+  cooldown_price_move: 0.03
 bond:
   price_min: 0.90
   price_max: 0.95

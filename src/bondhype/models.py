@@ -17,6 +17,13 @@ class Book:
 
 
 @dataclass(frozen=True)
+class FeeSchedule:
+    rate: float
+    exponent: float
+    enabled: bool
+
+
+@dataclass(frozen=True)
 class Market:
     id: str
     question: str
@@ -28,3 +35,4 @@ class Market:
     yes_token: str = ""
     no_token: str = ""
     outcomes: tuple[str, str] = ("Yes", "No")
+    fee_schedule: FeeSchedule | None = None

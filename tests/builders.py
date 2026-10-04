@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from bondhype.models import Book, Level, Market
+from bondhype.models import Book, FeeSchedule, Level, Market
 
 NOW = datetime(2026, 10, 4, 12, 0, tzinfo=UTC)
 
@@ -14,6 +14,7 @@ def make_market(**overrides) -> Market:
         yes_price=0.07,
         no_price=0.93,
         event_id="e1",
+        fee_schedule=FeeSchedule(rate=0.05, exponent=1, enabled=True),
     )
     fields.update(overrides)
     return Market(**fields)

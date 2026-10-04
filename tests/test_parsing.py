@@ -71,3 +71,31 @@ def test_parse_market_rejects_schema_drift(mutate):
     mutate(raw)
     with pytest.raises(ParseError):
         parse_market(raw)
+
+
+@pytest.mark.parametrize(
+    "fixture,rate",
+    [
+        ("bond_sports_tight", 0.03),
+        ("hype_no_side", 0.07),
+        ("bond_slow_14d", 0.04),
+        ("overlap_bond_priority_hype_yes_below_25", 0.05),
+    ],
+)
+def test_parse_market_reads_the_markets_own_fee_schedule(fixture, rate):
+    fees = parse_market(load(fixture)["gamma_market"]).fee_schedule
+    assert (fees.rate, fees.exponent, fees.enabled) == (rate, 1, True)
+
+
+def test_market_without_a_fee_schedule_has_none():
+    raw = load("bond_sports_tight")["gamma_market"]
+    raw.pop("feeSchedule")
+    assert parse_market(raw).fee_schedule is None
+
+
+def test_market_with_fees_disabled_and_no_schedule_is_fee_free():
+    raw = load("bond_sports_tight")["gamma_market"]
+    raw.pop("feeSchedule")
+    raw["feesEnabled"] = False
+    fees = parse_market(raw).fee_schedule
+    assert (fees.rate, fees.enabled) == (0.0, False)
