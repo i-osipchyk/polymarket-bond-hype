@@ -1,0 +1,422 @@
+{
+ "recorded_at": "2026-10-04",
+ "side": "YES",
+ "gamma_market": {
+  "id": "4913659",
+  "question": "Will Nolo peak at Category 4?",
+  "conditionId": "0xee85347adedf7cad52c3c8b1b6bf63c1e9b9994583e26962114af371ff612a65",
+  "slug": "will-nolo-peak-at-category-4",
+  "resolutionSource": "https://www.nhc.noaa.gov/",
+  "endDate": "2026-10-16T03:59:00Z",
+  "liquidity": "3462.56114",
+  "startDate": "2026-09-24T19:36:42Z",
+  "description": "This market will resolve according to the peak intensity of Nolo. Peak intensity means the highest Saffir-Simpson Hurricane Wind Scale category assigned to Nolo in any Tropical Cyclone Public Advisory issued for the storm.\n\nThe category is stated in the advisory and is determined by maximum sustained wind speed (1-minute average): Category 1 is 74 to 95 mph, Category 2 is 96 to 110 mph, Category 3 is 111 to 129 mph, Category 4 is 130 to 156 mph, and Category 5 is 157 mph or greater. Each category includes both of its stated bounds, so every possible peak wind speed falls in exactly one category. If Nolo never reaches Category 1 strength, \"Category 1 or weaker\" will resolve to \"Yes\".\n\nWind speeds will be used exactly as published, without rounding. Maximum sustained winds are reported in increments of 5 mph. Post-storm best track data and the Tropical Cyclone Report for Nolo will not be considered for resolution. Advisories issued by any agency other than the Central Pacific Hurricane Center and the National Hurricane Center will not be considered for resolution.\n\nThis market will resolve once Nolo dissipates. If Nolo has not dissipated by October 15, 2026, 11:59 PM ET, or if the advisory data needed to determine its peak intensity has not been published by that time, this market will remain open for up to 2 calendar days (ET) after that date; it will then resolve based on the finalized advisory data published up to that point.\n\nIf the data is still unavailable at the end of that period, or publication has been discontinued, this market will resolve according to the highest category assigned to Nolo in any advisory published up to that point. In case of obvious data integrity issues (i.e., erroneous data), the market may remain open until the end of the third calendar day (ET) after such data is first released to allow for corrections; this applies only to clerical or similar errors, not to the issuing center differing from other sources.\n\nA reanalysis or reclassification of Nolo's intensity published after Nolo dissipates will not change the resolution of this market. Revisions published before Nolo dissipates will be considered; revisions published after it dissipates will not be considered for resolution.\n\nThe primary resolution source for this market will be the Tropical Cyclone Public Advisories issued for Nolo by the Central Pacific Hurricane Center or the National Hurricane Center (https://www.nhc.noaa.gov/), specifically the category and the maximum sustained wind speed stated in the advisory.",
+  "outcomes": "[\"Yes\", \"No\"]",
+  "outcomePrices": "[\"0.944\", \"0.056\"]",
+  "volume": "7979.488303",
+  "active": true,
+  "closed": false,
+  "marketMakerAddress": "",
+  "createdAt": "2026-09-24T19:36:23.560221Z",
+  "updatedAt": "2026-10-04T14:38:54.635028Z",
+  "new": false,
+  "featured": false,
+  "archived": false,
+  "resolvedBy": "0x69c47De9D4D3Dad79590d61b9e05918E03775f24",
+  "restricted": true,
+  "groupItemTitle": "Category 4",
+  "groupItemThreshold": "4",
+  "questionID": "0xbea77001b9dbd6530fccfea5d4b4fb69299a037b25bca7856da38ec0a822cc03",
+  "enableOrderBook": true,
+  "orderPriceMinTickSize": 0.001,
+  "orderMinSize": 5,
+  "volumeNum": 7979.488303,
+  "liquidityNum": 3462.56114,
+  "endDateIso": "2026-10-16",
+  "startDateIso": "2026-09-24",
+  "hasReviewedDates": true,
+  "volume24hr": 1414.31,
+  "volume1wk": 6936.685270999999,
+  "volume1mo": 7979.488303,
+  "volume1yr": 7979.488303,
+  "clobTokenIds": "[\"13362953022565250362022283143053304757434164403494381460735304452314801004593\", \"77491166662209272874147519782913466593153440966453978488948054231165058495465\"]",
+  "comboStatus": "disabled",
+  "umaBond": "500",
+  "umaReward": "5",
+  "volume24hrClob": 1414.31,
+  "volume1wkClob": 6936.685270999999,
+  "volume1moClob": 7979.488303,
+  "volume1yrClob": 7979.488303,
+  "volumeClob": 7979.488303,
+  "liquidityClob": 3462.56114,
+  "makerBaseFee": 1000,
+  "takerBaseFee": 1000,
+  "customLiveness": 0,
+  "acceptingOrders": true,
+  "negRisk": true,
+  "negRiskMarketID": "0xbea77001b9dbd6530fccfea5d4b4fb69299a037b25bca7856da38ec0a822cc00",
+  "negRiskRequestID": "0x563f6998221533e66e68cccbe8d59df83bf1d44291c72fa0c36bb11da3f9d641",
+  "events": [
+   {
+    "id": "1075583",
+    "ticker": "what-category-will-nolo-reach",
+    "slug": "what-category-will-nolo-reach",
+    "title": "How strong will Nolo be?",
+    "description": "This market will resolve according to the peak intensity of Nolo. Peak intensity means the highest Saffir-Simpson Hurricane Wind Scale category assigned to Nolo in any Tropical Cyclone Public Advisory issued for the storm.\n\nThe category is stated in the advisory and is determined by maximum sustained wind speed (1-minute average): Category 1 is 74 to 95 mph, Category 2 is 96 to 110 mph, Category 3 is 111 to 129 mph, Category 4 is 130 to 156 mph, and Category 5 is 157 mph or greater. Each category includes both of its stated bounds, so every possible peak wind speed falls in exactly one category. If Nolo never reaches Category 1 strength, \"Category 1 or weaker\" will resolve to \"Yes\".\n\nWind speeds will be used exactly as published, without rounding. Maximum sustained winds are reported in increments of 5 mph. Post-storm best track data and the Tropical Cyclone Report for Nolo will not be considered for resolution. Advisories issued by any agency other than the Central Pacific Hurricane Center and the National Hurricane Center will not be considered for resolution.\n\nThis market will resolve once Nolo dissipates. If Nolo has not dissipated by October 15, 2026, 11:59 PM ET, or if the advisory data needed to determine its peak intensity has not been published by that time, this market will remain open for up to 2 calendar days (ET) after that date; it will then resolve based on the finalized advisory data published up to that point.\n\nIf the data is still unavailable at the end of that period, or publication has been discontinued, this market will resolve according to the highest category assigned to Nolo in any advisory published up to that point. In case of obvious data integrity issues (i.e., erroneous data), the market may remain open until the end of the third calendar day (ET) after such data is first released to allow for corrections; this applies only to clerical or similar errors, not to the issuing center differing from other sources.\n\nA reanalysis or reclassification of Nolo's intensity published after Nolo dissipates will not change the resolution of this market. Revisions published before Nolo dissipates will be considered; revisions published after it dissipates will not be considered for resolution.\n\nThe primary resolution source for this market will be the Tropical Cyclone Public Advisories issued for Nolo by the Central Pacific Hurricane Center or the National Hurricane Center (https://www.nhc.noaa.gov/), specifically the category and the maximum sustained wind speed stated in the advisory.",
+    "resolutionSource": "https://www.nhc.noaa.gov/",
+    "startDate": "2026-09-24T19:36:42Z",
+    "creationDate": "2026-09-24T19:38:44.963517Z",
+    "endDate": "2026-10-16T03:59:00Z",
+    "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/what-category-will-hurricane-imelda-reach-4K4KXHqKhcbw.jpg",
+    "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/what-category-will-hurricane-imelda-reach-4K4KXHqKhcbw.jpg",
+    "active": true,
+    "closed": false,
+    "archived": false,
+    "new": false,
+    "featured": false,
+    "restricted": true,
+    "liquidity": 25369.04739,
+    "volume": 14780.470989,
+    "openInterest": 2683.547304,
+    "sortBy": "ascending",
+    "createdAt": "2026-09-24T19:36:21.11795Z",
+    "updatedAt": "2026-10-04T14:39:03.261799Z",
+    "competitive": 0.8356367311645914,
+    "volume24hr": 1534.31,
+    "volume1wk": 9937.786634,
+    "volume1mo": 11170.489666000001,
+    "volume1yr": 11170.489666000001,
+    "enableOrderBook": true,
+    "liquidityClob": 25369.04739,
+    "negRisk": true,
+    "negRiskMarketID": "0xbea77001b9dbd6530fccfea5d4b4fb69299a037b25bca7856da38ec0a822cc00",
+    "commentCount": 2,
+    "cyom": false,
+    "showAllOutcomes": true,
+    "showMarketImages": false,
+    "enableNegRisk": true,
+    "automaticallyActive": true,
+    "gmpChartMode": "default",
+    "negRiskAugmented": false,
+    "estimateValue": false,
+    "cumulativeMarkets": false,
+    "pendingDeployment": false,
+    "deploying": false,
+    "deployingTimestamp": "2026-09-24T19:36:32.355156Z",
+    "eventMetadata": {
+     "context_requires_regen": false
+    },
+    "version": "v1"
+   }
+  ],
+  "ready": false,
+  "funded": false,
+  "acceptingOrdersTimestamp": "2026-09-24T19:36:42Z",
+  "cyom": false,
+  "competitive": 0.8353269803932051,
+  "approved": true,
+  "clobRewards": [
+   {
+    "id": "2888785",
+    "conditionId": "0xee85347adedf7cad52c3c8b1b6bf63c1e9b9994583e26962114af371ff612a65",
+    "assetAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "rewardsAmount": 0,
+    "rewardsDailyRate": 25,
+    "startDate": "2026-10-04",
+    "endDate": "2500-12-31"
+   }
+  ],
+  "rewardsMinSize": 50,
+  "rewardsMaxSpread": 4.5,
+  "spread": 0.004,
+  "oneDayPriceChange": 0.038,
+  "oneHourPriceChange": 0.0005,
+  "oneWeekPriceChange": 0.424,
+  "lastTradePrice": 0.919,
+  "bestBid": 0.942,
+  "bestAsk": 0.946,
+  "automaticallyActive": true,
+  "clearBookOnStart": true,
+  "showGmpSeries": false,
+  "showGmpOutcome": false,
+  "manualActivation": false,
+  "negRiskOther": false,
+  "umaResolutionStatuses": "[]",
+  "pendingDeployment": false,
+  "deploying": false,
+  "deployingTimestamp": "2026-09-24T19:36:32.420608Z",
+  "rfqEnabled": false,
+  "holdingRewardsEnabled": false,
+  "feesEnabled": true,
+  "feeType": "weather_fees",
+  "feeSchedule": {
+   "exponent": 1,
+   "rate": 0.05,
+   "takerOnly": true,
+   "rebateRate": 0.25
+  },
+  "version": "v1"
+ },
+ "clob_book": {
+  "market": "0xee85347adedf7cad52c3c8b1b6bf63c1e9b9994583e26962114af371ff612a65",
+  "asset_id": "13362953022565250362022283143053304757434164403494381460735304452314801004593",
+  "timestamp": "1791124873413",
+  "hash": "66c63270520c621e48364842b8501a94b86bcb6f",
+  "bids": [
+   {
+    "price": "0.001",
+    "size": "5335"
+   },
+   {
+    "price": "0.002",
+    "size": "2660"
+   },
+   {
+    "price": "0.003",
+    "size": "11773.31"
+   },
+   {
+    "price": "0.004",
+    "size": "250"
+   },
+   {
+    "price": "0.005",
+    "size": "200"
+   },
+   {
+    "price": "0.01",
+    "size": "10"
+   },
+   {
+    "price": "0.02",
+    "size": "3000"
+   },
+   {
+    "price": "0.026",
+    "size": "2500"
+   },
+   {
+    "price": "0.033",
+    "size": "1000"
+   },
+   {
+    "price": "0.073",
+    "size": "416"
+   },
+   {
+    "price": "0.074",
+    "size": "675"
+   },
+   {
+    "price": "0.1",
+    "size": "51"
+   },
+   {
+    "price": "0.65",
+    "size": "50.15"
+   },
+   {
+    "price": "0.71",
+    "size": "5"
+   },
+   {
+    "price": "0.712",
+    "size": "9.83"
+   },
+   {
+    "price": "0.714",
+    "size": "11.2"
+   },
+   {
+    "price": "0.715",
+    "size": "30.35"
+   },
+   {
+    "price": "0.895",
+    "size": "34.22"
+   },
+   {
+    "price": "0.906",
+    "size": "36"
+   },
+   {
+    "price": "0.909",
+    "size": "17.34"
+   },
+   {
+    "price": "0.911",
+    "size": "103"
+   },
+   {
+    "price": "0.912",
+    "size": "11.66"
+   },
+   {
+    "price": "0.913",
+    "size": "101"
+   },
+   {
+    "price": "0.921",
+    "size": "50"
+   },
+   {
+    "price": "0.923",
+    "size": "82"
+   },
+   {
+    "price": "0.93",
+    "size": "216.67"
+   },
+   {
+    "price": "0.931",
+    "size": "169"
+   },
+   {
+    "price": "0.932",
+    "size": "1230.04"
+   },
+   {
+    "price": "0.933",
+    "size": "107"
+   },
+   {
+    "price": "0.934",
+    "size": "257.43"
+   },
+   {
+    "price": "0.935",
+    "size": "256.68"
+   },
+   {
+    "price": "0.938",
+    "size": "400.01"
+   },
+   {
+    "price": "0.942",
+    "size": "138.72"
+   }
+  ],
+  "asks": [
+   {
+    "price": "0.999",
+    "size": "4585"
+   },
+   {
+    "price": "0.998",
+    "size": "560"
+   },
+   {
+    "price": "0.997",
+    "size": "106.66"
+   },
+   {
+    "price": "0.995",
+    "size": "1000"
+   },
+   {
+    "price": "0.994",
+    "size": "833.3"
+   },
+   {
+    "price": "0.993",
+    "size": "714.2"
+   },
+   {
+    "price": "0.992",
+    "size": "625"
+   },
+   {
+    "price": "0.991",
+    "size": "555.5"
+   },
+   {
+    "price": "0.99",
+    "size": "510"
+   },
+   {
+    "price": "0.989",
+    "size": "454.5"
+   },
+   {
+    "price": "0.988",
+    "size": "416.6"
+   },
+   {
+    "price": "0.987",
+    "size": "249"
+   },
+   {
+    "price": "0.984",
+    "size": "2777.16"
+   },
+   {
+    "price": "0.983",
+    "size": "400"
+   },
+   {
+    "price": "0.973",
+    "size": "32"
+   },
+   {
+    "price": "0.972",
+    "size": "50"
+   },
+   {
+    "price": "0.964",
+    "size": "82"
+   },
+   {
+    "price": "0.959",
+    "size": "1205.11"
+   },
+   {
+    "price": "0.957",
+    "size": "209.17"
+   },
+   {
+    "price": "0.956",
+    "size": "902.89"
+   },
+   {
+    "price": "0.955",
+    "size": "1130.04"
+   },
+   {
+    "price": "0.954",
+    "size": "107"
+   },
+   {
+    "price": "0.953",
+    "size": "50"
+   },
+   {
+    "price": "0.952",
+    "size": "356.68"
+   },
+   {
+    "price": "0.95",
+    "size": "417.6"
+   },
+   {
+    "price": "0.949",
+    "size": "32.75"
+   },
+   {
+    "price": "0.948",
+    "size": "310"
+   },
+   {
+    "price": "0.947",
+    "size": "77.39"
+   },
+   {
+    "price": "0.945",
+    "size": "20"
+   }
+  ],
+  "min_order_size": "5",
+  "tick_size": "0.001",
+  "neg_risk": true,
+  "last_trade_price": "0.927"
+ }
+}

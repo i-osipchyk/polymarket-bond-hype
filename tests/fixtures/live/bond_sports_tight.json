@@ -1,0 +1,347 @@
+{
+ "recorded_at": "2026-10-04",
+ "side": "NO",
+ "gamma_market": {
+  "id": "5102083",
+  "question": "Hawai'i vs. Arizona State",
+  "conditionId": "0x7a00b64fd87c5d79814c2baf499d82cb00f1feaf17e48d86e2f24871fff2530d",
+  "slug": "cfb-hawaii-arzst-2026-10-10",
+  "resolutionSource": "https://www.ncaa.com/",
+  "endDate": "2026-10-11T02:30:00Z",
+  "liquidity": "10295.2149",
+  "startDate": "2026-09-28T23:49:40Z",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/espn+college+football+logo.png",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/espn+college+football+logo.png",
+  "description": "In the upcoming college football game between Hawai'i and Arizona State, scheduled for October 10 at 10:30PM ET:\nThis market will resolve to \"Hawai'i\" if Hawai'i win the game.\nThis market will resolve to \"Arizona State\" if Arizona State win the game.\nOvertime is included if played.\nIf the game ends in a tie, this market will resolve 50-50.\nIf the game is postponed, this market will remain open until the game has been completed.\nIf the game is canceled entirely, with no make-up game, this market will resolve 50-50.",
+  "outcomes": "[\"Hawai'i\", \"Arizona State\"]",
+  "outcomePrices": "[\"0.075\", \"0.925\"]",
+  "volume": "4330.2876479999995",
+  "active": true,
+  "closed": false,
+  "marketMakerAddress": "",
+  "createdAt": "2026-09-28T23:48:15.071924Z",
+  "updatedAt": "2026-10-04T14:38:54.635028Z",
+  "new": false,
+  "featured": false,
+  "archived": false,
+  "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+  "restricted": true,
+  "groupItemThreshold": "0",
+  "questionID": "0xc7059fa357b7b1e7de579432267ceff4d6f56d0c9df16693d69a9b1c28fde725",
+  "enableOrderBook": true,
+  "orderPriceMinTickSize": 0.01,
+  "orderMinSize": 5,
+  "volumeNum": 4330.2876479999995,
+  "liquidityNum": 10295.2149,
+  "endDateIso": "2026-10-11",
+  "startDateIso": "2026-09-28",
+  "hasReviewedDates": true,
+  "volume24hr": 4330.2876479999995,
+  "volume1wk": 4330.2876479999995,
+  "volume1mo": 4330.2876479999995,
+  "volume1yr": 4330.2876479999995,
+  "gameStartTime": "2026-10-11 02:30:00+00",
+  "secondsDelay": 1,
+  "clobTokenIds": "[\"44468399620238322625802094400078666617158041021682252785031487950316825680959\", \"66598661988093976440075795090385657466914884576006571748484852443778188057387\"]",
+  "positionIds": [
+   "453983035718776333963551715917259152747298000080814125559944419076040818688",
+   "453983035718776333963551715917259152747298000080814125559944419076040818689"
+  ],
+  "comboStatus": "enabled",
+  "umaBond": "250",
+  "umaReward": "0.8",
+  "volume24hrClob": 4330.2876479999995,
+  "volume1wkClob": 4330.2876479999995,
+  "volume1moClob": 4330.2876479999995,
+  "volume1yrClob": 4330.2876479999995,
+  "volumeClob": 4330.2876479999995,
+  "liquidityClob": 10295.2149,
+  "makerBaseFee": 1000,
+  "takerBaseFee": 1000,
+  "customLiveness": 900,
+  "acceptingOrders": true,
+  "negRisk": false,
+  "events": [
+   {
+    "id": "1100631",
+    "ticker": "cfb-hawaii-arzst-2026-10-10",
+    "slug": "cfb-hawaii-arzst-2026-10-10",
+    "title": "Hawai'i vs. Arizona State",
+    "description": "In the upcoming college football game between Hawai'i and Arizona State, scheduled for October 10 at 10:30PM ET:\nThis market will resolve to \"Hawai'i\" if Hawai'i win the game.\nThis market will resolve to \"Arizona State\" if Arizona State win the game.\nOvertime is included if played.\nIf the game ends in a tie, this market will resolve 50-50.\nIf the game is postponed, this market will remain open until the game has been completed.\nIf the game is canceled entirely, with no make-up game, this market will resolve 50-50.",
+    "resolutionSource": "https://www.ncaa.com/",
+    "startDate": "2026-09-28T23:49:40Z",
+    "creationDate": "2026-10-11T02:30:00Z",
+    "endDate": "2026-10-11T02:30:00Z",
+    "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/espn+college+football+logo.png",
+    "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/espn+college+football+logo.png",
+    "active": true,
+    "closed": false,
+    "archived": false,
+    "new": false,
+    "featured": false,
+    "restricted": true,
+    "liquidity": 17413.0474,
+    "volume": 4330.2876479999995,
+    "openInterest": 908.027648,
+    "createdAt": "2026-09-28T23:48:14.481825Z",
+    "updatedAt": "2026-10-04T14:39:03.261799Z",
+    "competitive": 0.9999000099990001,
+    "volume24hr": 4330.2876479999995,
+    "volume1wk": 4330.2876479999995,
+    "volume1mo": 4330.2876479999995,
+    "volume1yr": 4330.2876479999995,
+    "enableOrderBook": true,
+    "liquidityClob": 17413.0474,
+    "negRisk": false,
+    "commentCount": 0,
+    "series": [
+     {
+      "id": "12756",
+      "ticker": "cfb-2026",
+      "slug": "cfb-2026",
+      "title": "CFB 2026",
+      "seriesType": "single",
+      "recurrence": "daily",
+      "active": true,
+      "closed": false,
+      "archived": false,
+      "new": false,
+      "featured": false,
+      "restricted": true,
+      "createdAt": "2026-08-27T13:43:32.233809Z",
+      "updatedAt": "2026-10-04T14:39:23.049144Z",
+      "volume24hr": 32778400.263623003,
+      "volume": 36217890.105179004,
+      "liquidity": 2353411.83819,
+      "commentCount": 35
+     }
+    ],
+    "cyom": false,
+    "showAllOutcomes": true,
+    "showMarketImages": false,
+    "enableNegRisk": false,
+    "automaticallyActive": true,
+    "eventDate": "2026-10-10",
+    "startTime": "2026-10-11T02:30:00Z",
+    "eventWeek": 6,
+    "seriesSlug": "cfb-2026",
+    "negRiskAugmented": false,
+    "pendingDeployment": false,
+    "deploying": false,
+    "gameId": 70971990,
+    "eventMetadata": {
+     "context_requires_regen": false,
+     "opticOddsFixtureId": "2026101087007EC6"
+    },
+    "version": "v1"
+   }
+  ],
+  "ready": false,
+  "funded": false,
+  "acceptingOrdersTimestamp": "2026-09-28T23:49:40Z",
+  "cyom": false,
+  "competitive": 0.8470089994706194,
+  "approved": true,
+  "rewardsMinSize": 50,
+  "rewardsMaxSpread": 4.5,
+  "spread": 0.01,
+  "oneDayPriceChange": -0.06,
+  "oneHourPriceChange": -0.01,
+  "lastTradePrice": 0.07,
+  "bestBid": 0.07,
+  "bestAsk": 0.08,
+  "automaticallyActive": true,
+  "clearBookOnStart": true,
+  "manualActivation": false,
+  "negRiskOther": false,
+  "sportsMarketType": "moneyline",
+  "umaResolutionStatuses": "[]",
+  "pendingDeployment": false,
+  "deploying": false,
+  "deployingTimestamp": "2026-09-28T23:49:33.447622Z",
+  "rfqEnabled": false,
+  "holdingRewardsEnabled": false,
+  "feesEnabled": true,
+  "feeType": "sports_fees_nfl_cfb_oct26",
+  "marketMetadata": {
+   "gammaTeamId": 118309
+  },
+  "feeSchedule": {
+   "exponent": 1,
+   "rate": 0.03,
+   "takerOnly": true,
+   "rebateRate": 0.15
+  },
+  "version": "v1"
+ },
+ "clob_book": {
+  "market": "0x7a00b64fd87c5d79814c2baf499d82cb00f1feaf17e48d86e2f24871fff2530d",
+  "asset_id": "66598661988093976440075795090385657466914884576006571748484852443778188057387",
+  "timestamp": "1791124820740",
+  "hash": "071ab19daca2978c9f87adfe32a2dfa1ce8da5c1",
+  "bids": [
+   {
+    "price": "0.01",
+    "size": "1275"
+   },
+   {
+    "price": "0.02",
+    "size": "810"
+   },
+   {
+    "price": "0.35",
+    "size": "451.82"
+   },
+   {
+    "price": "0.36",
+    "size": "121.35"
+   },
+   {
+    "price": "0.37",
+    "size": "249.04"
+   },
+   {
+    "price": "0.4",
+    "size": "124.18"
+   },
+   {
+    "price": "0.41",
+    "size": "727.57"
+   },
+   {
+    "price": "0.48",
+    "size": "109.21"
+   },
+   {
+    "price": "0.49",
+    "size": "225.66"
+   },
+   {
+    "price": "0.5",
+    "size": "99.34"
+   },
+   {
+    "price": "0.51",
+    "size": "274.86"
+   },
+   {
+    "price": "0.66",
+    "size": "9"
+   },
+   {
+    "price": "0.67",
+    "size": "8"
+   },
+   {
+    "price": "0.68",
+    "size": "2016"
+   },
+   {
+    "price": "0.69",
+    "size": "812.4"
+   },
+   {
+    "price": "0.7",
+    "size": "6"
+   },
+   {
+    "price": "0.71",
+    "size": "55"
+   },
+   {
+    "price": "0.72",
+    "size": "5"
+   },
+   {
+    "price": "0.73",
+    "size": "5"
+   },
+   {
+    "price": "0.74",
+    "size": "5"
+   },
+   {
+    "price": "0.75",
+    "size": "5"
+   },
+   {
+    "price": "0.78",
+    "size": "785"
+   },
+   {
+    "price": "0.83",
+    "size": "84.92"
+   },
+   {
+    "price": "0.84",
+    "size": "6.37"
+   },
+   {
+    "price": "0.85",
+    "size": "5.57"
+   },
+   {
+    "price": "0.86",
+    "size": "1025"
+   },
+   {
+    "price": "0.87",
+    "size": "1460"
+   },
+   {
+    "price": "0.88",
+    "size": "1469"
+   },
+   {
+    "price": "0.89",
+    "size": "1154.65"
+   },
+   {
+    "price": "0.9",
+    "size": "1059.32"
+   },
+   {
+    "price": "0.91",
+    "size": "582"
+   },
+   {
+    "price": "0.92",
+    "size": "305"
+   }
+  ],
+  "asks": [
+   {
+    "price": "0.99",
+    "size": "14959.93"
+   },
+   {
+    "price": "0.98",
+    "size": "8353.23"
+   },
+   {
+    "price": "0.97",
+    "size": "2529.14"
+   },
+   {
+    "price": "0.96",
+    "size": "2051.43"
+   },
+   {
+    "price": "0.95",
+    "size": "2113.29"
+   },
+   {
+    "price": "0.94",
+    "size": "2612.74"
+   },
+   {
+    "price": "0.93",
+    "size": "2967.31"
+   }
+  ],
+  "min_order_size": "5",
+  "tick_size": "0.01",
+  "neg_risk": false,
+  "last_trade_price": "0.070"
+ }
+}

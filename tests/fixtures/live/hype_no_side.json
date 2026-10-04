@@ -1,0 +1,376 @@
+{
+ "recorded_at": "2026-10-04",
+ "side": "NO",
+ "gamma_market": {
+  "id": "5081787",
+  "question": "Will the price of Bitcoin be above $86,000 on October 5?",
+  "conditionId": "0xa4cbd2feaa0d68bc87cf6a12b61520d193c143219ecc75d9557e19be235c4096",
+  "slug": "bitcoin-above-86k-on-october-5-2026",
+  "endDate": "2026-10-05T16:00:00Z",
+  "liquidity": "43615.0457",
+  "startDate": "2026-09-28T16:00:12Z",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png",
+  "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other exchanges or trading pairs.\n\nPrice precision is determined by the number of decimal places in the source.",
+  "outcomes": "[\"Yes\", \"No\"]",
+  "outcomePrices": "[\"0.24\", \"0.76\"]",
+  "volume": "15101.239194000002",
+  "active": true,
+  "closed": false,
+  "marketMakerAddress": "",
+  "createdAt": "2026-09-28T16:00:05.647931Z",
+  "updatedAt": "2026-10-04T14:38:54.635028Z",
+  "new": false,
+  "featured": false,
+  "archived": false,
+  "resolvedBy": "0x65070BE91477460D8A7AeEb94ef92fe056C2f2A7",
+  "restricted": true,
+  "groupItemTitle": "86,000",
+  "groupItemThreshold": "6",
+  "questionID": "0xb4c0e3f8aae50bba83cf492f3a3e430951c8fe53bf24985db5068fe4ab871946",
+  "enableOrderBook": true,
+  "orderPriceMinTickSize": 0.01,
+  "orderMinSize": 5,
+  "volumeNum": 15101.239194000002,
+  "liquidityNum": 43615.0457,
+  "endDateIso": "2026-10-05",
+  "startDateIso": "2026-09-28",
+  "hasReviewedDates": true,
+  "volume24hr": 8518.946566999999,
+  "volume1wk": 15101.239194000003,
+  "volume1mo": 15101.239194000003,
+  "volume1yr": 15101.239194000003,
+  "clobTokenIds": "[\"8533073851671033549593345856725979500590487807679234151875978608618618091\", \"35550692392745199038950227980556964928946439049115626570495669392413721928687\"]",
+  "comboStatus": "disabled",
+  "umaBond": "250",
+  "umaReward": "0.6",
+  "volume24hrClob": 8518.946566999999,
+  "volume1wkClob": 15101.239194000003,
+  "volume1moClob": 15101.239194000003,
+  "volume1yrClob": 15101.239194000003,
+  "volumeClob": 15101.239194000002,
+  "liquidityClob": 43615.0457,
+  "makerBaseFee": 1000,
+  "takerBaseFee": 1000,
+  "customLiveness": 600,
+  "acceptingOrders": true,
+  "negRisk": false,
+  "events": [
+   {
+    "id": "1098535",
+    "ticker": "bitcoin-above-on-october-5-2026",
+    "slug": "bitcoin-above-on-october-5-2026",
+    "title": "Bitcoin above ___ on October 5?",
+    "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other exchanges or trading pairs.\n\nPrice precision is determined by the number of decimal places in the source.",
+    "startDate": "2026-09-28T16:00:12Z",
+    "creationDate": "2026-09-28T16:01:21.184361Z",
+    "endDate": "2026-10-05T16:00:00Z",
+    "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png",
+    "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png",
+    "active": true,
+    "closed": false,
+    "archived": false,
+    "new": false,
+    "featured": false,
+    "restricted": true,
+    "liquidity": 450945.71415,
+    "volume": 325847.33436700003,
+    "openInterest": 240006.27395899995,
+    "createdAt": "2026-09-28T16:00:04.341885Z",
+    "updatedAt": "2026-10-04T14:39:03.261799Z",
+    "competitive": 0.938945095185559,
+    "volume24hr": 123084.527584,
+    "volume1wk": 325847.33436700003,
+    "volume1mo": 325847.33436700003,
+    "volume1yr": 325847.33436700003,
+    "enableOrderBook": true,
+    "liquidityClob": 450945.71415,
+    "negRisk": false,
+    "commentCount": 0,
+    "series": [
+     {
+      "id": "45",
+      "ticker": "btc-multi-strikes-weekly",
+      "slug": "btc-multi-strikes-weekly",
+      "title": "BTC Multi Strikes Weekly",
+      "subtitle": "BTC",
+      "seriesType": "single",
+      "recurrence": "weekly",
+      "image": "https://polymarket.com/_next/image?url=https%3A%2F%2Fpolymarket-upload.s3.us-east-2.amazonaws.com%2Fwill-btc-r_7bfde384d001ec27dfc6513c3c13161c_256x256_qual_100.webp&w=256&q=100",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC.png",
+      "layout": "default",
+      "active": true,
+      "closed": false,
+      "archived": false,
+      "new": false,
+      "featured": false,
+      "restricted": true,
+      "publishedAt": "2023-04-11 18:00:01.087+00",
+      "createdBy": "15",
+      "updatedBy": "17",
+      "createdAt": "2023-04-11T17:58:52.163Z",
+      "updatedAt": "2026-10-04T14:39:23.049144Z",
+      "commentsEnabled": false,
+      "competitive": "0",
+      "volume24hr": 1065462.690325,
+      "volume": 1656060.5874039999,
+      "liquidity": 2575360.67728,
+      "startDate": "2021-01-01T17:00:00Z",
+      "pythTokenID": "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+      "cgAssetName": "bitcoin",
+      "commentCount": 4422
+     }
+    ],
+    "cyom": false,
+    "showAllOutcomes": true,
+    "showMarketImages": false,
+    "enableNegRisk": false,
+    "automaticallyActive": true,
+    "seriesSlug": "btc-multi-strikes-weekly",
+    "negRiskAugmented": false,
+    "pendingDeployment": false,
+    "deploying": false,
+    "version": "v1"
+   }
+  ],
+  "ready": false,
+  "funded": false,
+  "acceptingOrdersTimestamp": "2026-09-28T16:00:12Z",
+  "cyom": false,
+  "competitive": 0.9366804046459348,
+  "approved": true,
+  "rewardsMinSize": 50,
+  "rewardsMaxSpread": 4.5,
+  "spread": 0.02,
+  "oneDayPriceChange": 0.035,
+  "oneHourPriceChange": -0.035,
+  "lastTradePrice": 0.25,
+  "bestBid": 0.23,
+  "bestAsk": 0.25,
+  "automaticallyActive": true,
+  "clearBookOnStart": true,
+  "manualActivation": false,
+  "negRiskOther": false,
+  "umaResolutionStatuses": "[]",
+  "pendingDeployment": false,
+  "deploying": false,
+  "deployingTimestamp": "2026-09-28T16:00:07.036856Z",
+  "rfqEnabled": false,
+  "holdingRewardsEnabled": false,
+  "feesEnabled": true,
+  "feeType": "crypto_fees_v2",
+  "feeSchedule": {
+   "exponent": 1,
+   "rate": 0.07,
+   "takerOnly": true,
+   "rebateRate": 0.2
+  },
+  "version": "v1"
+ },
+ "clob_book": {
+  "market": "0xa4cbd2feaa0d68bc87cf6a12b61520d193c143219ecc75d9557e19be235c4096",
+  "asset_id": "35550692392745199038950227980556964928946439049115626570495669392413721928687",
+  "timestamp": "1791124854611",
+  "hash": "57fc32fdd42b4611596c0d094fd24cdc96d2765a",
+  "bids": [
+   {
+    "price": "0.01",
+    "size": "115041.84"
+   },
+   {
+    "price": "0.02",
+    "size": "15.1"
+   },
+   {
+    "price": "0.03",
+    "size": "79999.96"
+   },
+   {
+    "price": "0.06",
+    "size": "51249.98"
+   },
+   {
+    "price": "0.07",
+    "size": "8.56"
+   },
+   {
+    "price": "0.1",
+    "size": "15"
+   },
+   {
+    "price": "0.11",
+    "size": "30145.42"
+   },
+   {
+    "price": "0.13",
+    "size": "20092"
+   },
+   {
+    "price": "0.14",
+    "size": "2185.71"
+   },
+   {
+    "price": "0.15",
+    "size": "200"
+   },
+   {
+    "price": "0.16",
+    "size": "31.25"
+   },
+   {
+    "price": "0.21",
+    "size": "16952.36"
+   },
+   {
+    "price": "0.22",
+    "size": "1363.63"
+   },
+   {
+    "price": "0.25",
+    "size": "20"
+   },
+   {
+    "price": "0.27",
+    "size": "7000"
+   },
+   {
+    "price": "0.31",
+    "size": "10483.85"
+   },
+   {
+    "price": "0.32",
+    "size": "415.62"
+   },
+   {
+    "price": "0.37",
+    "size": "13.51"
+   },
+   {
+    "price": "0.44",
+    "size": "411.36"
+   },
+   {
+    "price": "0.51",
+    "size": "400"
+   },
+   {
+    "price": "0.59",
+    "size": "400"
+   },
+   {
+    "price": "0.66",
+    "size": "1840"
+   },
+   {
+    "price": "0.67",
+    "size": "5400"
+   },
+   {
+    "price": "0.71",
+    "size": "5"
+   },
+   {
+    "price": "0.72",
+    "size": "181.19"
+   },
+   {
+    "price": "0.73",
+    "size": "205"
+   },
+   {
+    "price": "0.74",
+    "size": "5230"
+   },
+   {
+    "price": "0.75",
+    "size": "8113.53"
+   },
+   {
+    "price": "0.76",
+    "size": "1000"
+   }
+  ],
+  "asks": [
+   {
+    "price": "0.99",
+    "size": "117020.63"
+   },
+   {
+    "price": "0.98",
+    "size": "1400"
+   },
+   {
+    "price": "0.97",
+    "size": "10835.1"
+   },
+   {
+    "price": "0.96",
+    "size": "500"
+   },
+   {
+    "price": "0.95",
+    "size": "1406.5"
+   },
+   {
+    "price": "0.94",
+    "size": "333.3"
+   },
+   {
+    "price": "0.93",
+    "size": "285.7"
+   },
+   {
+    "price": "0.9",
+    "size": "2960"
+   },
+   {
+    "price": "0.89",
+    "size": "400"
+   },
+   {
+    "price": "0.86",
+    "size": "35.71"
+   },
+   {
+    "price": "0.85",
+    "size": "385"
+   },
+   {
+    "price": "0.84",
+    "size": "890"
+   },
+   {
+    "price": "0.83",
+    "size": "5"
+   },
+   {
+    "price": "0.82",
+    "size": "5105"
+   },
+   {
+    "price": "0.81",
+    "size": "1218.38"
+   },
+   {
+    "price": "0.8",
+    "size": "55"
+   },
+   {
+    "price": "0.79",
+    "size": "7626.53"
+   },
+   {
+    "price": "0.78",
+    "size": "357"
+   },
+   {
+    "price": "0.77",
+    "size": "304"
+   }
+  ],
+  "min_order_size": "5",
+  "tick_size": "0.01",
+  "neg_risk": false,
+  "last_trade_price": "0.750"
+ }
+}

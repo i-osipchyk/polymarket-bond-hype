@@ -1,4 +1,4 @@
-version: "2026-10-04.1"
+version: "v1"
 order_size_usd: 10
 prescreen_price_margin: 0.03
 bond:

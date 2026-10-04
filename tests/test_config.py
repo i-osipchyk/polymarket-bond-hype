@@ -17,6 +17,9 @@ def test_valid_config_exposes_filter_thresholds():
     config = load_config(FIXTURES / "config_valid.yaml")
     assert (config.bond.price_min, config.bond.price_max) == (0.90, 0.95)
     assert config.bond.max_spread == 0.02
+    assert config.bond.min_annualised_yield == 2.0
+    assert config.order_size_usd == 10
+    assert config.prescreen_price_margin == 0.03
     assert (config.hype.yes_price_min, config.hype.yes_price_max) == (0.05, 0.25)
     assert config.hype.max_spread == 0.03
     assert config.hype.days_to_resolution_max == 14

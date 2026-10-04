@@ -1,0 +1,372 @@
+{
+ "recorded_at": "2026-10-04",
+ "side": "NO",
+ "gamma_market": {
+  "id": "5114473",
+  "question": "Will Elon Musk post 240-259 tweets from October 2 to October 9, 2026?",
+  "conditionId": "0xa8ed6bb82d82375d41e306ac94b2c5ea06869d1e4478bd570e495c763be6f19c",
+  "slug": "elon-musk-of-tweets-october-2-october-9-2026-240-259",
+  "resolutionSource": "https://x.com/elonmusk",
+  "endDate": "2026-10-09T16:00:00Z",
+  "liquidity": "24114.5865",
+  "startDate": "2026-09-29T04:00:29Z",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/elon-musk-of-tweets-nov-22-29-apMPG21-pzx_.jpg",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/elon-musk-of-tweets-nov-22-29-apMPG21-pzx_.jpg",
+  "description": "This market will resolve according to the number of times Elon Musk (@elonmusk), posts on X from October 2 12:00 PM ET to October 9, 2026 12:00 PM ET.\n\nFor the purposes of this market, only main feed posts, quote posts and reposts will count.\n\nReplies will NOT count towards the total - however, replies on the main feed such as https://x.com/elonmusk/status/1786073478711353576 will be counted by the tracker.\n\nDeleted posts will count as long as they remain available long enough to be captured by the tracker (~5 minutes).\n\nCommunity reposts which are not counted by the tracker not count toward the total.\n\nThe resolution source for this market is the 'Post Counter' figure for posts found at https://xtracker.polymarket.com. Individual posts can be viewed by clicking \"Export Data\". If the tracker does not update correctly in accordance with the rules, X itself may be used as a secondary resolution source.",
+  "outcomes": "[\"Yes\", \"No\"]",
+  "outcomePrices": "[\"0.095\", \"0.905\"]",
+  "volume": "16870.421143",
+  "active": true,
+  "closed": false,
+  "marketMakerAddress": "",
+  "createdAt": "2026-09-29T04:00:03.429575Z",
+  "updatedAt": "2026-10-04T14:38:54.635028Z",
+  "new": false,
+  "featured": false,
+  "archived": false,
+  "resolvedBy": "0x69c47De9D4D3Dad79590d61b9e05918E03775f24",
+  "restricted": true,
+  "groupItemTitle": "240-259",
+  "groupItemThreshold": "12",
+  "questionID": "0x8660e1aec116a0b568fc19166233463f831fb1b4d38bd101a02addb7bfcd390c",
+  "enableOrderBook": true,
+  "orderPriceMinTickSize": 0.01,
+  "orderMinSize": 5,
+  "volumeNum": 16870.421143,
+  "liquidityNum": 24114.5865,
+  "endDateIso": "2026-10-09",
+  "startDateIso": "2026-09-29",
+  "hasReviewedDates": true,
+  "volume24hr": 9369.289115,
+  "volume1wk": 16870.421143,
+  "volume1mo": 16870.421143,
+  "volume1yr": 16870.421143,
+  "gameStartTime": "2026-10-02 16:00:00+00",
+  "clobTokenIds": "[\"83740503741644676392737004425579685442548913015969881789524541723039853813726\", \"4179828443110141801937824307983044806453697545691572102575868372344955108830\"]",
+  "comboStatus": "disabled",
+  "umaBond": "500",
+  "umaReward": "3.5",
+  "volume24hrClob": 9369.289115,
+  "volume1wkClob": 16870.421143,
+  "volume1moClob": 16870.421143,
+  "volume1yrClob": 16870.421143,
+  "volumeClob": 16870.421143,
+  "liquidityClob": 24114.5865,
+  "makerBaseFee": 1000,
+  "takerBaseFee": 1000,
+  "acceptingOrders": true,
+  "negRisk": true,
+  "negRiskMarketID": "0x8660e1aec116a0b568fc19166233463f831fb1b4d38bd101a02addb7bfcd3900",
+  "negRiskRequestID": "0x898d280631bca4157cc14e3bd7dbc9dba53c46fb4b7ea1414de7ee1f6f184a86",
+  "events": [
+   {
+    "id": "1101580",
+    "ticker": "elon-musk-of-tweets-october-2-october-9-2026",
+    "slug": "elon-musk-of-tweets-october-2-october-9-2026",
+    "title": "Elon Musk # tweets October 2 - October 9, 2026?",
+    "description": "This market will resolve according to the number of times Elon Musk (@elonmusk), posts on X from October 2 12:00 PM ET to October 9, 2026 12:00 PM ET.\n\nFor the purposes of this market, only main feed posts, quote posts and reposts will count.\n\nReplies will NOT count towards the total - however, replies on the main feed such as https://x.com/elonmusk/status/1786073478711353576 will be counted by the tracker.\n\nDeleted posts will count as long as they remain available long enough to be captured by the tracker (~5 minutes).\n\nCommunity reposts which are not counted by the tracker not count toward the total.\n\nThe resolution source for this market is the 'Post Counter' figure for posts found at https://xtracker.polymarket.com. Individual posts can be viewed by clicking \"Export Data\". If the tracker does not update correctly in accordance with the rules, X itself may be used as a secondary resolution source.",
+    "resolutionSource": "https://x.com/elonmusk",
+    "startDate": "2026-09-29T04:00:29Z",
+    "creationDate": "2026-09-29T04:03:05.167964Z",
+    "endDate": "2026-10-09T16:00:00Z",
+    "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/elon-musk-of-tweets-nov-22-29-apMPG21-pzx_.jpg",
+    "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/elon-musk-of-tweets-nov-22-29-apMPG21-pzx_.jpg",
+    "active": true,
+    "closed": false,
+    "archived": false,
+    "new": false,
+    "featured": false,
+    "restricted": true,
+    "liquidity": 434875.51746,
+    "volume": 473536.8656349999,
+    "openInterest": 100367.43435700002,
+    "createdAt": "2026-09-29T04:00:01.36709Z",
+    "updatedAt": "2026-10-04T14:39:03.261799Z",
+    "competitive": 0.9518143961927424,
+    "volume24hr": 140732.411959,
+    "volume1wk": 399584.432635,
+    "volume1mo": 399584.432635,
+    "volume1yr": 399584.432635,
+    "enableOrderBook": true,
+    "liquidityClob": 434875.51746,
+    "negRisk": true,
+    "negRiskMarketID": "0x8660e1aec116a0b568fc19166233463f831fb1b4d38bd101a02addb7bfcd3900",
+    "commentCount": 0,
+    "series": [
+     {
+      "id": "10000",
+      "ticker": "elon-tweets",
+      "slug": "elon-tweets",
+      "title": "Elon Tweets",
+      "seriesType": "single",
+      "recurrence": "weekly",
+      "image": "https://cdn.britannica.com/05/236505-050-17B6E34A/Elon-Musk-2022.jpg",
+      "icon": "https://cdn.britannica.com/05/236505-050-17B6E34A/Elon-Musk-2022.jpg",
+      "active": true,
+      "closed": false,
+      "archived": false,
+      "new": false,
+      "featured": false,
+      "restricted": true,
+      "publishedAt": "2024-06-14 18:57:17.756574+00",
+      "createdAt": "2024-06-14T18:57:17.756574Z",
+      "updatedAt": "2026-10-04T14:39:23.049144Z",
+      "commentsEnabled": false,
+      "competitive": "0",
+      "volume24hr": 451808.335014,
+      "volume": 1631360.1908969998,
+      "liquidity": 1200075.59116,
+      "startDate": "2024-06-14T18:57:17.756574Z",
+      "commentCount": 70333
+     }
+    ],
+    "cyom": false,
+    "showAllOutcomes": true,
+    "showMarketImages": false,
+    "enableNegRisk": true,
+    "automaticallyActive": true,
+    "startTime": "2026-10-02T16:00:00Z",
+    "seriesSlug": "elon-tweets",
+    "negRiskAugmented": false,
+    "tweetCount": 57,
+    "pendingDeployment": false,
+    "deploying": false,
+    "deployingTimestamp": "2026-09-29T04:00:05.994223Z",
+    "eventMetadata": {
+     "context_requires_regen": false
+    },
+    "version": "v1"
+   }
+  ],
+  "ready": false,
+  "funded": false,
+  "acceptingOrdersTimestamp": "2026-09-29T04:00:29Z",
+  "cyom": false,
+  "competitive": 0.8590880780051975,
+  "approved": true,
+  "clobRewards": [
+   {
+    "id": "2699761",
+    "conditionId": "0xa8ed6bb82d82375d41e306ac94b2c5ea06869d1e4478bd570e495c763be6f19c",
+    "assetAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "rewardsAmount": 0,
+    "rewardsDailyRate": 8,
+    "startDate": "2026-10-04",
+    "endDate": "2500-12-31"
+   }
+  ],
+  "rewardsMinSize": 50,
+  "rewardsMaxSpread": 5.5,
+  "spread": 0.01,
+  "oneDayPriceChange": -0.03,
+  "oneHourPriceChange": -0.01,
+  "lastTradePrice": 0.1,
+  "bestBid": 0.09,
+  "bestAsk": 0.1,
+  "automaticallyActive": true,
+  "clearBookOnStart": true,
+  "manualActivation": false,
+  "negRiskOther": false,
+  "umaResolutionStatuses": "[]",
+  "pendingDeployment": false,
+  "deploying": false,
+  "deployingTimestamp": "2026-09-29T04:00:06.003108Z",
+  "rfqEnabled": false,
+  "holdingRewardsEnabled": false,
+  "feesEnabled": true,
+  "feeType": "culture_fees",
+  "feeSchedule": {
+   "exponent": 1,
+   "rate": 0.05,
+   "takerOnly": true,
+   "rebateRate": 0.25
+  },
+  "version": "v1"
+ },
+ "clob_book": {
+  "market": "0xa8ed6bb82d82375d41e306ac94b2c5ea06869d1e4478bd570e495c763be6f19c",
+  "asset_id": "4179828443110141801937824307983044806453697545691572102575868372344955108830",
+  "timestamp": "1791124870499",
+  "hash": "4c6ec67ceb8bb4d8b87f3e332e29cbd2c87afff1",
+  "bids": [
+   {
+    "price": "0.01",
+    "size": "1065.99"
+   },
+   {
+    "price": "0.02",
+    "size": "75.4"
+   },
+   {
+    "price": "0.4",
+    "size": "440"
+   },
+   {
+    "price": "0.41",
+    "size": "121"
+   },
+   {
+    "price": "0.51",
+    "size": "906"
+   },
+   {
+    "price": "0.54",
+    "size": "466"
+   },
+   {
+    "price": "0.56",
+    "size": "1136.36"
+   },
+   {
+    "price": "0.57",
+    "size": "466"
+   },
+   {
+    "price": "0.6",
+    "size": "2466"
+   },
+   {
+    "price": "0.61",
+    "size": "440"
+   },
+   {
+    "price": "0.63",
+    "size": "466"
+   },
+   {
+    "price": "0.66",
+    "size": "466"
+   },
+   {
+    "price": "0.69",
+    "size": "466"
+   },
+   {
+    "price": "0.7",
+    "size": "2590"
+   },
+   {
+    "price": "0.71",
+    "size": "2057.23"
+   },
+   {
+    "price": "0.72",
+    "size": "466"
+   },
+   {
+    "price": "0.73",
+    "size": "400"
+   },
+   {
+    "price": "0.74",
+    "size": "19.69"
+   },
+   {
+    "price": "0.75",
+    "size": "566"
+   },
+   {
+    "price": "0.76",
+    "size": "60"
+   },
+   {
+    "price": "0.77",
+    "size": "466"
+   },
+   {
+    "price": "0.78",
+    "size": "466"
+   },
+   {
+    "price": "0.79",
+    "size": "591"
+   },
+   {
+    "price": "0.8",
+    "size": "2635"
+   },
+   {
+    "price": "0.81",
+    "size": "1031.87"
+   },
+   {
+    "price": "0.82",
+    "size": "929"
+   },
+   {
+    "price": "0.83",
+    "size": "471"
+   },
+   {
+    "price": "0.84",
+    "size": "450"
+   },
+   {
+    "price": "0.85",
+    "size": "50"
+   },
+   {
+    "price": "0.86",
+    "size": "352"
+   },
+   {
+    "price": "0.87",
+    "size": "709"
+   },
+   {
+    "price": "0.88",
+    "size": "250"
+   },
+   {
+    "price": "0.89",
+    "size": "574.86"
+   },
+   {
+    "price": "0.9",
+    "size": "7304.06"
+   }
+  ],
+  "asks": [
+   {
+    "price": "0.99",
+    "size": "650"
+   },
+   {
+    "price": "0.98",
+    "size": "25"
+   },
+   {
+    "price": "0.97",
+    "size": "21196.92"
+   },
+   {
+    "price": "0.96",
+    "size": "5179.3"
+   },
+   {
+    "price": "0.95",
+    "size": "613.2"
+   },
+   {
+    "price": "0.94",
+    "size": "1512.9"
+   },
+   {
+    "price": "0.93",
+    "size": "2846.36"
+   },
+   {
+    "price": "0.92",
+    "size": "1193.76"
+   },
+   {
+    "price": "0.91",
+    "size": "453.9"
+   }
+  ],
+  "min_order_size": "5",
+  "tick_size": "0.01",
+  "neg_risk": true,
+  "last_trade_price": "0.100"
+ }
+}

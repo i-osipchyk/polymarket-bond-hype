@@ -1,0 +1,310 @@
+{
+ "recorded_at": "2026-10-04",
+ "side": "YES",
+ "gamma_market": {
+  "id": "3478615",
+  "question": "Will Mike Hurley win the 2026 Burnaby mayoral election?",
+  "conditionId": "0x7c341303b3591d45ee60feaf833be16ab3ca2ded3d83bb916807d441e982041d",
+  "slug": "will-mike-hurley-win-the-2026-burnaby-mayoral-election-1786127591442",
+  "resolutionSource": "",
+  "endDate": "2026-10-18T03:59:00Z",
+  "liquidity": "19397.8431",
+  "startDate": "2026-08-10T07:43:22.918393Z",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/bc-mayor2-mike-hurley-90eec7e93a.jpg",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/bc-mayor2-mike-hurley-90eec7e93a.jpg",
+  "description": "The 2026 Burnaby, BC mayoral election is currently scheduled to be held on October 17, 2026.\n\nThis market will resolve according to the candidate who becomes the next mayor of Burnaby as a result of this election.\n\nTemporary, interim, or placeholder mayors appointed before the election will not be considered.\n\nIf the result of this election isn't known by June 30, 2027, 11:59 PM ET, the market will resolve to \"Other\".\n\nThe primary resolution source for this market will be a consensus of credible reporting; however, if there is any ambiguity in the results, this market will resolve according to official information from Burnaby.",
+  "outcomes": "[\"Yes\", \"No\"]",
+  "outcomePrices": "[\"0.925\", \"0.075\"]",
+  "volume": "2143.237095",
+  "active": true,
+  "closed": false,
+  "marketMakerAddress": "",
+  "createdAt": "2026-08-10T07:34:04.073314Z",
+  "updatedAt": "2026-10-04T14:34:54.320085Z",
+  "new": false,
+  "featured": false,
+  "submitted_by": "0xF43d55F3A8B7484Ed4B6931f93CB6F9eF5Dd369D",
+  "archived": false,
+  "resolvedBy": "0x69c47De9D4D3Dad79590d61b9e05918E03775f24",
+  "restricted": true,
+  "groupItemTitle": "Mike Hurley",
+  "groupItemThreshold": "0",
+  "questionID": "0x9cf7b2e1805b532d5d485454644ab3fc2539965fd604415196ae432b659d3400",
+  "enableOrderBook": true,
+  "orderPriceMinTickSize": 0.01,
+  "orderMinSize": 5,
+  "volumeNum": 2143.237095,
+  "liquidityNum": 19397.8431,
+  "endDateIso": "2026-10-18",
+  "startDateIso": "2026-08-10",
+  "hasReviewedDates": true,
+  "volume24hr": 79.981183,
+  "volume1wk": 129.981183,
+  "volume1mo": 174.527095,
+  "volume1yr": 2143.2370950000004,
+  "clobTokenIds": "[\"19729158606729362186753972366356155646507713720766108237057194953034847202660\", \"97483635379702650166828153017979117420759753720592575599229052558571538347221\"]",
+  "comboStatus": "disabled",
+  "umaBond": "500",
+  "umaReward": "5",
+  "volume24hrClob": 79.981183,
+  "volume1wkClob": 129.981183,
+  "volume1moClob": 174.527095,
+  "volume1yrClob": 2143.2370950000004,
+  "volumeClob": 2143.237095,
+  "liquidityClob": 19397.8431,
+  "makerBaseFee": 1000,
+  "takerBaseFee": 1000,
+  "customLiveness": 0,
+  "acceptingOrders": true,
+  "negRisk": true,
+  "negRiskMarketID": "0x9cf7b2e1805b532d5d485454644ab3fc2539965fd604415196ae432b659d3400",
+  "negRiskRequestID": "0xf9491dc3a19ade8504244832da194028c85967606df7f9f3d9c83ed82dc762a9",
+  "events": [
+   {
+    "id": "826325",
+    "ticker": "burnaby-mayoral-election-2026",
+    "slug": "burnaby-mayoral-election-2026",
+    "title": "Burnaby Mayoral Election",
+    "description": "The 2026 Burnaby, BC mayoral election is currently scheduled to be held on October 17, 2026.\n\nThis market will resolve according to the candidate who becomes the next mayor of Burnaby as a result of this election.\n\nTemporary, interim, or placeholder mayors appointed before the election will not be considered.\n\nIf the result of this election isn't known by June 30, 2027, 11:59 PM ET, the market will resolve to \"Other\".\n\nThe primary resolution source for this market will be a consensus of credible reporting; however, if there is any ambiguity in the results, this market will resolve according to official information from Burnaby.",
+    "resolutionSource": "",
+    "startDate": "2026-08-10T07:43:22.918393Z",
+    "creationDate": "2026-08-10T07:47:56.385246Z",
+    "endDate": "2026-10-18T03:59:00Z",
+    "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/bc-flag-burnaby-01c28cd280.jpg",
+    "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/bc-flag-burnaby-01c28cd280.jpg",
+    "active": true,
+    "closed": false,
+    "archived": false,
+    "new": false,
+    "featured": false,
+    "restricted": true,
+    "liquidity": 66758.18174,
+    "volume": 2741.857095,
+    "openInterest": 1230.625,
+    "sortBy": "price",
+    "createdAt": "2026-08-10T07:34:03.579592Z",
+    "updatedAt": "2026-10-04T14:39:03.261799Z",
+    "competitive": 0.8470089994706194,
+    "volume24hr": 79.981183,
+    "volume1wk": 129.981183,
+    "volume1mo": 174.527095,
+    "volume1yr": 2143.2370950000004,
+    "enableOrderBook": true,
+    "liquidityClob": 66758.18174,
+    "negRisk": true,
+    "negRiskMarketID": "0x9cf7b2e1805b532d5d485454644ab3fc2539965fd604415196ae432b659d3400",
+    "commentCount": 0,
+    "cyom": false,
+    "showAllOutcomes": true,
+    "showMarketImages": true,
+    "enableNegRisk": true,
+    "automaticallyActive": true,
+    "gmpChartMode": "default",
+    "negRiskAugmented": true,
+    "estimateValue": false,
+    "cumulativeMarkets": false,
+    "pendingDeployment": false,
+    "deploying": false,
+    "deployingTimestamp": "2026-08-10T07:34:24.569327Z",
+    "eventMetadata": {
+     "context_requires_regen": false
+    },
+    "version": "v1"
+   }
+  ],
+  "ready": false,
+  "funded": false,
+  "acceptingOrdersTimestamp": "2026-08-10T07:42:22Z",
+  "cyom": false,
+  "competitive": 0.8470089994706194,
+  "approved": true,
+  "clobRewards": [
+   {
+    "id": "1765345",
+    "conditionId": "0x7c341303b3591d45ee60feaf833be16ab3ca2ded3d83bb916807d441e982041d",
+    "assetAddress": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "rewardsAmount": 0,
+    "rewardsDailyRate": 2,
+    "startDate": "2026-10-04",
+    "endDate": "2500-12-31"
+   }
+  ],
+  "rewardsMinSize": 50,
+  "rewardsMaxSpread": 8.5,
+  "spread": 0.01,
+  "lastTradePrice": 0.93,
+  "bestBid": 0.92,
+  "bestAsk": 0.93,
+  "automaticallyActive": true,
+  "clearBookOnStart": true,
+  "showGmpSeries": false,
+  "showGmpOutcome": false,
+  "manualActivation": false,
+  "negRiskOther": false,
+  "umaResolutionStatuses": "[]",
+  "pendingDeployment": false,
+  "deploying": false,
+  "deployingTimestamp": "2026-08-10T07:39:25.644847Z",
+  "rfqEnabled": false,
+  "holdingRewardsEnabled": false,
+  "feesEnabled": true,
+  "feeType": "politics_fees",
+  "feeSchedule": {
+   "exponent": 1,
+   "rate": 0.04,
+   "takerOnly": true,
+   "rebateRate": 0.25
+  },
+  "version": "v1"
+ },
+ "clob_book": {
+  "market": "0x7c341303b3591d45ee60feaf833be16ab3ca2ded3d83bb916807d441e982041d",
+  "asset_id": "19729158606729362186753972366356155646507713720766108237057194953034847202660",
+  "timestamp": "1791124867997",
+  "hash": "259a920b53cc0c596c4059cb044676f768021182",
+  "bids": [
+   {
+    "price": "0.01",
+    "size": "2631.71"
+   },
+   {
+    "price": "0.02",
+    "size": "1297.08"
+   },
+   {
+    "price": "0.03",
+    "size": "30156.25"
+   },
+   {
+    "price": "0.04",
+    "size": "21609.36"
+   },
+   {
+    "price": "0.05",
+    "size": "46518.75"
+   },
+   {
+    "price": "0.06",
+    "size": "13062.5"
+   },
+   {
+    "price": "0.07",
+    "size": "5.97"
+   },
+   {
+    "price": "0.09",
+    "size": "14444.44"
+   },
+   {
+    "price": "0.14",
+    "size": "9285.71"
+   },
+   {
+    "price": "0.16",
+    "size": "3363.28"
+   },
+   {
+    "price": "0.19",
+    "size": "6842.1"
+   },
+   {
+    "price": "0.21",
+    "size": "2379.46"
+   },
+   {
+    "price": "0.23",
+    "size": "5652.17"
+   },
+   {
+    "price": "0.26",
+    "size": "1626.2"
+   },
+   {
+    "price": "0.28",
+    "size": "4285.71"
+   },
+   {
+    "price": "0.29",
+    "size": "2068"
+   },
+   {
+    "price": "0.31",
+    "size": "1239.92"
+   },
+   {
+    "price": "0.33",
+    "size": "3636.36"
+   },
+   {
+    "price": "0.36",
+    "size": "1067.71"
+   },
+   {
+    "price": "0.37",
+    "size": "2702.7"
+   },
+   {
+    "price": "0.38",
+    "size": "402"
+   },
+   {
+    "price": "0.41",
+    "size": "750"
+   },
+   {
+    "price": "0.88",
+    "size": "206.78"
+   },
+   {
+    "price": "0.89",
+    "size": "189.14"
+   },
+   {
+    "price": "0.9",
+    "size": "650.81"
+   },
+   {
+    "price": "0.91",
+    "size": "515.81"
+   },
+   {
+    "price": "0.92",
+    "size": "958.31"
+   }
+  ],
+  "asks": [
+   {
+    "price": "0.99",
+    "size": "6125.02"
+   },
+   {
+    "price": "0.98",
+    "size": "1969.73"
+   },
+   {
+    "price": "0.97",
+    "size": "819"
+   },
+   {
+    "price": "0.96",
+    "size": "255.91"
+   },
+   {
+    "price": "0.95",
+    "size": "521.31"
+   },
+   {
+    "price": "0.94",
+    "size": "1152.99"
+   },
+   {
+    "price": "0.93",
+    "size": "863.61"
+   }
+  ],
+  "min_order_size": "5",
+  "tick_size": "0.01",
+  "neg_risk": true,
+  "last_trade_price": "0.080"
+ }
+}

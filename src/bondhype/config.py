@@ -24,6 +24,7 @@ class BondFilters(_Strict):
     liquidity_multiple: float
     max_spread: float
     min_total_volume_usd: float
+    min_annualised_yield: float
 
     @model_validator(mode="after")
     def _band_is_ordered(self):
@@ -50,6 +51,8 @@ class HypeFilters(_Strict):
 
 class Config(_Strict):
     version: str
+    order_size_usd: float
+    prescreen_price_margin: float
     bond: BondFilters
     hype: HypeFilters
 
