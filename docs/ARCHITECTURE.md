@@ -1,6 +1,6 @@
 # Architecture
 
-Technical design for the forward test described in [README.md](../README.md). Nothing here is implemented yet.
+Technical design for the forward test described in [README.md](../README.md). Code for phases 0-8 exists; the AWS stack has been validated but not applied.
 
 ## Stack
 
@@ -91,3 +91,14 @@ Open-position state is derived from the event files. Dedup key: `arm + strategy 
 - Prompt wording for the two prompts and the fixed risk-flag vocabulary.
 - Exact hard-volume floor and annualised-yield threshold for bond.
 - Telegram chat and bot setup.
+
+## Deployment (phase 8)
+
+- `handlers.py`: one `run_*` function per job over a `Runtime` (storage, config, LLM setup, Telegram `send`, API fetchers). Tracker and overdue send a Telegram alert listing any market that failed; the report is stored once per day (a rerun re-sends but keeps the first stored copy); `run_alarm` forwards CloudWatch alarm state changes from SNS. `lambda_entry.py` holds the one-line Lambda entry points; they use the EventBridge schedule time as `now`, so a retried invocation writes the same keys.
+- `runtime.build_runtime(env)`: bucket, config path and prompts dir from env; secrets are read from SSM SecureString parameters named in env (`{prefix}/deepseek-api-key`, `/telegram-bot-token`, `/telegram-chat-id`), created by hand and never in Terraform state. Missing settings fail fast.
+- `Dockerfile`: one image for all functions; config and prompts are baked in, so an image pins both versions. Each function sets its own handler through `image_config.command`.
+- `infra/` (Terraform): S3 bucket (versioned, encrypted, private), ECR, one least-privilege role per function (no `s3:DeleteObject`; only scanner, tracker, overdue and report may `PutObject`), EventBridge schedules (scanner and heartbeat every 15 min, tracker hourly, overdue 06:00 and report 07:00 UTC), reserved concurrency 1 on scanner and tracker, an Errors alarm per job feeding an SNS topic and the `alarm` function.
+- Every function reads all three secrets because the shared runtime builds the LLM and Telegram clients, so the IAM grant is the same set of three parameters, not per-function.
+- New AWS accounts often cannot reserve concurrency (the unreserved pool must stay at 10 or more). Request a limit increase or set `reserve_concurrency = false` and accept the single-writer risk until then.
+
+Deploy order: create the SSM parameters, `terraform apply -target=aws_ecr_repository.app`, build for `linux/amd64` and push the image to that repository, then a full `terraform apply`, then the 24 h dry run before freezing config and prompt versions.

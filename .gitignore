@@ -221,3 +221,9 @@ __marimo__/
 
 # Local scan output
 data/
+
+# Terraform
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars

@@ -58,3 +58,7 @@ def price_history(token_id: str, interval: str = "1d", fidelity_minutes: int = 6
         {"market": token_id, "interval": interval, "fidelity": fidelity_minutes},
     )
     return data["history"]
+
+
+def fetch_market(market_id: str) -> dict:
+    return _get(f"{GAMMA}/markets/{market_id}", {})
