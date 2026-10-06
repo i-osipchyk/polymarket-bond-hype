@@ -1,4 +1,6 @@
 import json
+import logging
+import threading
 from datetime import timedelta
 from pathlib import Path
 
@@ -176,3 +178,66 @@ def test_llm_input_is_a_stored_snapshot_with_resolution_rules_and_filter_values(
     assert snapshot["side"] == "NO"
     assert snapshot["values"]["ask"] == 0.93
     assert snapshot["values"]["spread"] == pytest.approx(0.01)
+
+
+def several_markets(n):
+    """n copies of the bond fixture with distinct ids, events and tokens, plus their books."""
+    market, books = bond_market_and_books()
+    old_yes, old_no = json.loads(market["clobTokenIds"])
+    raws, by_token = [], {}
+    for i in range(n):
+        yes, no = f"yes-{i}", f"no-{i}"
+        raws.append(
+            market
+            | {"id": f"9{i}", "clobTokenIds": json.dumps([yes, no]), "events": [{"id": f"ev{i}"}]}
+        )
+        by_token |= {yes: books[old_yes], no: books[old_no]}
+    return raws, by_token
+
+
+class RendezvousClient:
+    """Every call waits until `parties` calls are in flight; sequential code can never get there."""
+
+    def __init__(self, parties):
+        self._barrier = threading.Barrier(parties, timeout=2)
+
+    def complete(self, *, model, system, user):
+        self._barrier.wait()
+        return verdict_json("buy")
+
+
+def test_llm_reviews_run_concurrently_and_the_outcome_is_unchanged(tmp_path):
+    storage = LocalStorage(tmp_path)
+    raws, books = several_markets(2)  # 2 markets x 2 prompts = 4 calls that must overlap
+    llm = LLMSetup(client=RendezvousClient(parties=4), reject=REJECT_PROMPT, buy=BUY_PROMPT)
+
+    scan(raws, lambda token: books[token], storage, CONFIG, NOW, llm=llm)
+
+    for arm in ARMS:
+        assert len(storage.list(positions_prefix(arm, "bond"))) == 2
+    assert len(storage.list("llm_calls/")) == 4
+
+
+def test_worker_count_comes_from_config(tmp_path):
+    storage = LocalStorage(tmp_path)
+    raws, books = several_markets(2)
+    one_worker = CONFIG.model_copy(update={"llm": CONFIG.llm.model_copy(update={"max_workers": 1})})
+    llm = LLMSetup(client=RendezvousClient(parties=2), reject=REJECT_PROMPT, buy=BUY_PROMPT)
+
+    with pytest.raises(threading.BrokenBarrierError):  # one worker can never meet at the barrier
+        scan(raws, lambda token: books[token], storage, one_worker, NOW, llm=llm)
+
+
+def test_the_run_logs_candidates_llm_calls_and_opened_positions(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    llm, _ = setup("buy", "reject")
+
+    market = run_scan(LocalStorage(tmp_path), llm)
+
+    log = caplog.text
+    assert "fetched and evaluated 1 markets" in log
+    assert f"candidate {market['id']} bond NO" in log
+    assert "reviewing 1 candidates (2 LLM calls)" in log
+    assert f"llm {REJECT_PROMPT.id} {market['id']} -> buy" in log
+    assert f"llm {BUY_PROMPT.id} {market['id']} -> reject" in log
+    assert f"opened prompt_reject/bond NO on {market['id']}" in log

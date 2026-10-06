@@ -1,6 +1,7 @@
 """Run one scan against live data, writing candidates to a local directory."""
 
 import argparse
+import logging
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -31,12 +32,17 @@ def main() -> None:
     parser.add_argument("--no-llm", action="store_true", help="baseline arm only")
     args = parser.parse_args()
 
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S"
+    )
     _load_env(Path(".env"))
     config = load_config(args.config)
     llm = None
     if not args.no_llm:
         llm = LLMSetup(
-            client=DeepSeekClient(os.environ["DEEPSEEK_API_KEY"]),
+            client=DeepSeekClient(
+                os.environ["DEEPSEEK_API_KEY"], timeout=config.llm.timeout_seconds
+            ),
             reject=load_prompt(args.prompts_dir, config.llm.reject_prompt),
             buy=load_prompt(args.prompts_dir, config.llm.buy_prompt),
         )

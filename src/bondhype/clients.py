@@ -1,6 +1,7 @@
 """Thin HTTP clients for the public Gamma and CLOB APIs. Raw JSON in, raw JSON out."""
 
 import json
+import logging
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -11,6 +12,7 @@ from bondhype.books import BookFetchError
 
 GAMMA = "https://gamma-api.polymarket.com"
 CLOB = "https://clob.polymarket.com"
+logger = logging.getLogger(__name__)
 HEADERS = {"User-Agent": "polymarket-bond-hype/0.1"}
 
 
@@ -36,8 +38,11 @@ def list_markets(
         "end_date_max": _iso(end_date_max),
         "volume_num_min": volume_num_min,
     }
+    total = 0
     while True:
         page = _get(f"{GAMMA}/markets/keyset", params)
+        total += len(page["markets"])
+        logger.info("fetched %d markets from Gamma (%d so far)", len(page["markets"]), total)
         yield from page["markets"]
         if not page.get("next_cursor"):
             return

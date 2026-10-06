@@ -61,6 +61,8 @@ class LLMSettings(_Strict):
     model: str
     reject_prompt: str
     buy_prompt: str
+    max_workers: int = Field(gt=0)
+    timeout_seconds: float = Field(gt=0)
 
 
 class GateRules(_Strict):

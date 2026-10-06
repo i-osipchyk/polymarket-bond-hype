@@ -24,7 +24,7 @@ locals {
   # Every job reads storage and the three secrets (the shared runtime builds all of them).
   # `writes` jobs may put objects; none may ever delete: stored data is append-only.
   jobs = {
-    scanner   = { schedule = "rate(15 minutes)", timeout = 600, reserved = true, writes = true }
+    scanner   = { schedule = "rate(15 minutes)", timeout = 900, reserved = true, writes = true }
     tracker   = { schedule = "rate(1 hour)", timeout = 600, reserved = true, writes = true }
     overdue   = { schedule = "cron(0 6 * * ? *)", timeout = 600, reserved = false, writes = true }
     report    = { schedule = "cron(0 7 * * ? *)", timeout = 300, reserved = false, writes = true }

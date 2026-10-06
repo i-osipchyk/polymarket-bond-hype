@@ -1,6 +1,9 @@
 import json
+import logging
 import math
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime
 
 from bondhype.arms import ARMS, route
@@ -9,11 +12,13 @@ from bondhype.config import Config
 from bondhype.cooldown import cooldown_active, record_rejection
 from bondhype.entry import open_position
 from bondhype.filters import Attempt, evaluate_market
-from bondhype.llm import LLMSetup, review
+from bondhype.llm import LLMSetup, Prompt, Verdict, review
 from bondhype.markets import parse_market
 from bondhype.models import Book, Market
 from bondhype.portfolio import position_key
 from bondhype.storage import Storage
+
+logger = logging.getLogger(__name__)
 
 
 def _attempt_record(attempt: Attempt) -> dict:
@@ -58,17 +63,20 @@ def _snapshot(market: Market, attempt: Attempt, now: datetime) -> dict:
     }
 
 
-def _enter_arms(
-    market: Market,
-    attempt: Attempt,
-    book: Book,
-    storage: Storage,
-    config: Config,
-    now: datetime,
-    llm: LLMSetup | None,
-) -> None:
+@dataclass(frozen=True)
+class _Candidate:
+    market: Market
+    attempt: Attempt
+    book: Book
+    pending: list[str]  # arms that could still open this market
+    snapshot: dict
+
+
+def _pending_arms(
+    market: Market, attempt: Attempt, storage: Storage, config: Config, now: datetime
+) -> list[str]:
     strategy, ask = attempt.strategy, attempt.result.values["ask"]
-    pending = [
+    return [
         arm
         for arm in ARMS
         if not storage.exists(position_key(arm, strategy, market.id))
@@ -77,27 +85,50 @@ def _enter_arms(
             or not cooldown_active(storage, config, arm, strategy, market.id, ask, now)
         )
     ]
+
+
+def _review_all(
+    candidates: list[_Candidate], storage: Storage, config: Config, now: datetime, llm: LLMSetup
+) -> dict[str, tuple[Verdict, Verdict]]:
+    """Both prompts for every candidate that an LLM arm could still trade, run concurrently."""
+    to_review = [c for c in candidates if any(arm != "baseline" for arm in c.pending)]
+    tasks = [(c, prompt) for c in to_review for prompt in (llm.reject, llm.buy)]
+    logger.info("reviewing %d candidates (%d LLM calls)", len(to_review), len(tasks))
+
+    def run(task: tuple[_Candidate, Prompt]) -> Verdict:
+        candidate, prompt = task
+        return review(
+            candidate.snapshot,
+            prompt,
+            llm.client,
+            model=config.llm.model,
+            storage=storage,
+            market_id=candidate.market.id,
+            config_version=config.version,
+            now=now,
+        )
+
+    with ThreadPoolExecutor(max_workers=config.llm.max_workers) as pool:
+        verdicts = list(pool.map(run, tasks))  # map keeps task order
+    return {c.market.id: (verdicts[2 * i], verdicts[2 * i + 1]) for i, c in enumerate(to_review)}
+
+
+def _enter_arms(
+    candidate: _Candidate,
+    verdicts: tuple[Verdict, Verdict] | None,
+    storage: Storage,
+    config: Config,
+    now: datetime,
+) -> None:
+    market, attempt = candidate.market, candidate.attempt
+    strategy, ask = attempt.strategy, attempt.result.values["ask"]
     trading = {"baseline"}
-    if llm is not None and any(arm != "baseline" for arm in pending):
-        snapshot = _snapshot(market, attempt, now)
-        verdicts = [
-            review(
-                snapshot,
-                prompt,
-                llm.client,
-                model=config.llm.model,
-                storage=storage,
-                market_id=market.id,
-                config_version=config.version,
-                now=now,
-            )
-            for prompt in (llm.reject, llm.buy)
-        ]
+    if verdicts is not None:
         trading = route(reject=verdicts[0], buy=verdicts[1])
-        for arm in pending:
+        for arm in candidate.pending:
             if arm not in trading:
                 record_rejection(storage, arm, strategy, market.id, ask, now)
-    for arm in pending:
+    for arm in candidate.pending:
         if arm in trading:
             open_position(
                 storage,
@@ -106,9 +137,18 @@ def _enter_arms(
                 strategy=strategy,
                 market=market,
                 side=attempt.side,
-                book=book,
+                book=candidate.book,
                 now=now,
             )
+            logger.info("opened %s/%s %s on %s", arm, strategy, attempt.side, market.id)
+
+
+def _skipped_line(market_id: str, config: Config, **fields) -> str:
+    return json.dumps(
+        {"market_id": market_id, "config_version": config.version, "selected": None, "attempts": []}
+        | fields,
+        allow_nan=False,
+    )
 
 
 def scan(
@@ -119,37 +159,23 @@ def scan(
     now: datetime,
     llm: LLMSetup | None = None,
 ) -> None:
-    lines = []
+    """Evaluate every market, review candidates concurrently, then open positions in order."""
+    lines: list[str] = []
+    candidates: list[_Candidate] = []
+    seen = prescreened = 0
     for raw in raw_markets:
+        seen += 1
+        if seen % 100 == 0:
+            logger.info("evaluated %d markets, %d candidates so far", seen, len(candidates))
         try:
             market = parse_market(raw)
         except ParseError as exc:
-            lines.append(
-                json.dumps(
-                    {
-                        "market_id": str(raw.get("id")),
-                        "config_version": config.version,
-                        "selected": None,
-                        "parse_error": str(exc),
-                        "attempts": [],
-                    },
-                    allow_nan=False,
-                )
-            )
+            logger.warning("market %s unparseable: %s", raw.get("id"), exc)
+            lines.append(_skipped_line(str(raw.get("id")), config, parse_error=str(exc)))
             continue
         if not _could_reach_a_band(market, config):
-            lines.append(
-                json.dumps(
-                    {
-                        "market_id": market.id,
-                        "config_version": config.version,
-                        "selected": None,
-                        "prescreened": "no_price_in_any_band",
-                        "attempts": [],
-                    },
-                    allow_nan=False,
-                )
-            )
+            prescreened += 1
+            lines.append(_skipped_line(market.id, config, prescreened="no_price_in_any_band"))
             continue
         books = {
             side: book
@@ -159,7 +185,23 @@ def scan(
         evaluation = evaluate_market(market, books, config, now)
         selected = evaluation.selected
         if selected is not None:
-            _enter_arms(market, selected, books[selected.side], storage, config, now, llm)
+            logger.info(
+                "candidate %s %s %s ask=%.3f: %s",
+                market.id,
+                selected.strategy,
+                selected.side,
+                selected.result.values["ask"],
+                market.question[:60],
+            )
+            candidates.append(
+                _Candidate(
+                    market=market,
+                    attempt=selected,
+                    book=books[selected.side],
+                    pending=_pending_arms(market, selected, storage, config, now),
+                    snapshot=_snapshot(market, selected, now),
+                )
+            )
         lines.append(
             json.dumps(
                 {
@@ -173,5 +215,17 @@ def scan(
                 allow_nan=False,
             )
         )
+    logger.info(
+        "fetched and evaluated %d markets: %d prescreened out, %d candidates",
+        seen,
+        prescreened,
+        len(candidates),
+    )
+
+    verdicts = _review_all(candidates, storage, config, now, llm) if llm is not None else {}
+    for candidate in candidates:
+        _enter_arms(candidate, verdicts.get(candidate.market.id), storage, config, now)
+
     key = f"candidates/date={now:%Y-%m-%d}/scan={now:%Y-%m-%dT%H:%M:%SZ}.jsonl"
     storage.put(key, ("\n".join(lines) + "\n").encode())
+    logger.info("scan done, wrote %s", key)

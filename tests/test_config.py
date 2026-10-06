@@ -84,3 +84,14 @@ def test_config_without_gate_section_is_rejected(tmp_path):
 
 def test_valid_config_exposes_the_heartbeat_threshold():
     assert load_config(FIXTURES / "config_valid.yaml").health.heartbeat_max_age_minutes == 45
+
+
+def test_valid_config_exposes_llm_concurrency_and_timeout():
+    llm = load_config(FIXTURES / "config_valid.yaml").llm
+    assert (llm.max_workers, llm.timeout_seconds) == (8, 45)
+
+
+@pytest.mark.parametrize("field", ["max_workers", "timeout_seconds"])
+def test_llm_settings_must_be_positive(tmp_path, field):
+    with pytest.raises(ConfigError):
+        load_config(_write_variant(tmp_path, lambda c: c["llm"].update({field: 0})))

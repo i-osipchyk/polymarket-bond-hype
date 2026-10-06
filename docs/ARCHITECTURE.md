@@ -106,3 +106,9 @@ Deploy order: create the SSM parameters, `terraform apply -target=aws_ecr_reposi
 ## Pulling results for local analysis
 
 `python -m bondhype.pull --bucket <bucket>` mirrors S3 into `data/` with the same key layout, so `local_report`, `build_report` and `verdict` run on it unchanged. It is incremental and read-only on S3: keys already present locally are skipped without downloading (stored data is append-only, so they are final), and nothing is ever overwritten or deleted. Raw `books/` and `pricepath/` are skipped unless `--heavy`; `--prefix` (repeatable) narrows to specific prefixes. It uses your normal AWS credentials (`AWS_PROFILE`) and needs `s3:ListBucket` and `s3:GetObject`. `BONDHYPE_BUCKET` can replace `--bucket`.
+
+## Scan phases, concurrency and logging
+
+`scan` runs in three phases: (1) evaluate every market and collect candidates, (2) run the reject and buy reviews for all candidates an LLM arm could still trade, concurrently in a thread pool of `llm.max_workers`, (3) open positions sequentially in market order, so fills, caps, cooldowns and the single-writer rule behave as before. Reviews are independent and stored per call, so concurrency changes nothing about the results. A first scan with ~90 candidates makes ~180 calls (about 10 s each when sequential, over 30 minutes), so concurrency is what keeps it inside the Lambda limit (scanner timeout 900 s, the maximum). `llm.timeout_seconds` bounds each HTTP call (two attempts per review). Books are fetched in phase 1 and reused for entry, so on a heavy scan an entry book can be a few minutes old; every arm still uses the same snapshot.
+
+Logging uses the standard `logging` module (INFO): Gamma pages fetched, progress every 100 markets, each candidate, each LLM call with verdict and duration (or `cached`), failed attempts as warnings, each position opened. `local_scan` prints them to the terminal; Lambda output goes to CloudWatch Logs.

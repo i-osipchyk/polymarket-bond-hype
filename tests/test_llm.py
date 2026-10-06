@@ -1,4 +1,5 @@
 import json
+import logging
 
 import pytest
 
@@ -169,6 +170,35 @@ def test_a_retried_scan_reuses_the_stored_verdict_instead_of_calling_again(tmp_p
 
     assert second == first
     assert second_client.calls == []
+
+
+def test_a_new_call_is_logged_with_its_verdict_and_duration(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+
+    run(FakeClient(BUY), tmp_path)
+
+    assert "llm reject_v1 m1 -> buy in " in caplog.text
+
+
+def test_a_reused_review_is_logged_as_cached(tmp_path, caplog):
+    run(FakeClient(BUY), tmp_path)
+    caplog.set_level(logging.INFO)
+    caplog.clear()
+
+    run(FakeClient(), tmp_path)
+
+    assert "llm reject_v1 m1 -> buy (cached)" in caplog.text
+
+
+def test_failed_attempts_are_logged_as_warnings_before_the_error_verdict(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+
+    run(FakeClient(LLMError("timeout"), "garbage"), tmp_path)
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 2
+    assert "llm reject_v1 m1 attempt 1 failed" in warnings[0] and "timeout" in warnings[0]
+    assert "llm reject_v1 m1 -> error" in caplog.text
 
 
 def test_configured_prompts_exist_and_state_the_whole_output_contract():

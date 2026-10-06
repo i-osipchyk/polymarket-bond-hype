@@ -5,6 +5,8 @@ llm:
   model: deepseek-flash
   reject_prompt: reject_v1
   buy_prompt: buy_v1
+  max_workers: 8
+  timeout_seconds: 45
 portfolio:
   starting_balance_usd: 1000
   max_positions_per_event: 5

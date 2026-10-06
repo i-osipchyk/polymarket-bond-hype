@@ -1,4 +1,6 @@
 import json
+import logging
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -7,6 +9,8 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from bondhype.storage import Storage
+
+logger = logging.getLogger(__name__)
 
 
 class LLMError(Exception):
@@ -96,20 +100,25 @@ def review(
     """Ask the model once per (market, prompt, scan); a retried scan reuses the stored verdict."""
     key = _key(prompt, market_id, now)
     if storage.exists(key):
-        return Verdict(**_stored_verdict(json.loads(storage.get(key))["verdict"]))
+        stored = Verdict(**_stored_verdict(json.loads(storage.get(key))["verdict"]))
+        logger.info("llm %s %s -> %s (cached)", prompt.id, market_id, stored.verdict)
+        return stored
+    started = time.monotonic()
     user = json.dumps(snapshot, sort_keys=True)
     attempts = []
     verdict = None
-    for _ in range(MAX_ATTEMPTS):
+    for number in range(1, MAX_ATTEMPTS + 1):
         try:
             reply = client.complete(model=model, system=prompt.system, user=user)
         except LLMError as exc:
             attempts.append({"output": None, "error": str(exc)})
+            logger.warning("llm %s %s attempt %d failed: %s", prompt.id, market_id, number, exc)
             continue
         try:
             verdict = _parse(reply)
         except ValueError as exc:
             attempts.append({"output": reply, "error": str(exc)})
+            logger.warning("llm %s %s attempt %d failed: %s", prompt.id, market_id, number, exc)
             continue
         attempts.append({"output": reply, "error": None})
         break
@@ -126,6 +135,13 @@ def review(
         "verdict": asdict(verdict),
     }
     storage.put(key, json.dumps(record, sort_keys=True).encode())
+    logger.info(
+        "llm %s %s -> %s in %.1fs",
+        prompt.id,
+        market_id,
+        verdict.verdict,
+        time.monotonic() - started,
+    )
     return verdict
 
 

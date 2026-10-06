@@ -78,7 +78,9 @@ def build_runtime(
         storage=make_storage(names["BONDHYPE_BUCKET"]),
         config=config,
         llm=LLMSetup(
-            client=DeepSeekClient(read_secret(names["DEEPSEEK_API_KEY_PARAM"])),
+            client=DeepSeekClient(
+                read_secret(names["DEEPSEEK_API_KEY_PARAM"]), timeout=config.llm.timeout_seconds
+            ),
             reject=load_prompt(prompts_dir, config.llm.reject_prompt),
             buy=load_prompt(prompts_dir, config.llm.buy_prompt),
         ),

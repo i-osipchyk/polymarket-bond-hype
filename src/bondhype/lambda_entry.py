@@ -1,10 +1,13 @@
 """AWS Lambda entry points: one per job, selected by the function's image command."""
 
+import logging
 import os
 from datetime import UTC, datetime
 
 from bondhype import handlers
 from bondhype.runtime import Runtime, build_runtime
+
+logging.getLogger().setLevel(logging.INFO)  # Lambda ships root-logger output to CloudWatch
 
 _runtime: Runtime | None = None
 
