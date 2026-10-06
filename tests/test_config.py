@@ -65,3 +65,18 @@ def test_valid_config_pins_the_llm_model_and_prompt_versions():
 def test_missing_file_is_a_config_error(tmp_path):
     with pytest.raises(ConfigError):
         load_config(tmp_path / "nope.yaml")
+
+
+def test_valid_config_exposes_go_live_gate_thresholds():
+    gate = load_config(FIXTURES / "config_valid.yaml").gate
+    assert gate.min_resolved_trades == 100
+    assert gate.confidence == 0.95
+    assert gate.win_rate_margin == 0.01
+    assert gate.max_loss_fraction == 0.10
+    assert gate.capital_cost_annual_rate == 0.05
+    assert (gate.bootstrap_samples, gate.bootstrap_seed) == (2000, 20261004)
+
+
+def test_config_without_gate_section_is_rejected(tmp_path):
+    with pytest.raises(ConfigError):
+        load_config(_write_variant(tmp_path, lambda c: c.pop("gate")))

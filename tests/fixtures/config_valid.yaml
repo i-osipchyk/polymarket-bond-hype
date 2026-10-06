@@ -28,3 +28,11 @@ hype:
   liquidity_multiple: 3
   max_spread: 0.03
   min_total_volume_usd: 2000
+gate:
+  min_resolved_trades: 100
+  confidence: 0.95
+  win_rate_margin: 0.01
+  max_loss_fraction: 0.10
+  capital_cost_annual_rate: 0.05
+  bootstrap_samples: 2000
+  bootstrap_seed: 20261004

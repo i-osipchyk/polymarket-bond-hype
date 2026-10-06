@@ -63,6 +63,16 @@ class LLMSettings(_Strict):
     buy_prompt: str
 
 
+class GateRules(_Strict):
+    min_resolved_trades: int = Field(gt=0)
+    confidence: float = Field(gt=0, lt=1)
+    win_rate_margin: float = Field(ge=0, le=1)
+    max_loss_fraction: float = Field(gt=0, le=1)
+    capital_cost_annual_rate: float = Field(ge=0)
+    bootstrap_samples: int = Field(gt=0)
+    bootstrap_seed: int
+
+
 class Config(_Strict):
     version: str
     order_size_usd: float
@@ -71,6 +81,7 @@ class Config(_Strict):
     portfolio: PortfolioRules
     bond: BondFilters
     hype: HypeFilters
+    gate: GateRules
 
 
 def load_config(path: Path) -> Config:
