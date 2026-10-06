@@ -131,32 +131,36 @@ def _pct(value: float | None) -> str:
     return "-" if value is None else f"{value:.1%}"
 
 
-def _arm_line(e: ArmReport) -> str:
+def _status(overdue: OverdueReport) -> str:
+    return "disputed" if overdue.was_disputed else str(overdue.uma_status)
+
+
+def _arm_lines(e: ArmReport) -> list[str]:
     resolved, conservative = e.stats.resolved, e.stats.conservative
     low, high = resolved.ev_ci_usd
-    return (
-        f"{e.arm:<14} cand {e.candidates_today} trades {e.trades_today} res {e.resolutions_today}"
-        f" | resolved n={resolved.n_trades} EV {resolved.net_ev_usd:+.2f} [{low:+.2f}, {high:+.2f}]"
-        f" win {_pct(resolved.win_rate)} vs break-even {_pct(resolved.break_even_rate)}"
-        f" | conservative n={conservative.n_trades} EV {conservative.net_ev_usd:+.2f}"
-        f" dd {conservative.max_drawdown_usd:.2f} worst {conservative.worst_loss_usd:.2f}"
-        f" | llm err {_pct(e.llm_error_rate)}"
-        f" | gate {'PASS' if e.verdict.passed else 'FAIL'}"
-    )
+    return [
+        f"{e.arm}: gate {'PASS' if e.verdict.passed else 'FAIL'}",
+        f"  today: cand {e.candidates_today}, trades {e.trades_today}, res {e.resolutions_today}",
+        f"  resolved n={resolved.n_trades} EV {resolved.net_ev_usd:+.2f} [{low:+.2f}, {high:+.2f}]",
+        f"  win {_pct(resolved.win_rate)} vs break-even {_pct(resolved.break_even_rate)}",
+        f"  conservative n={conservative.n_trades} EV {conservative.net_ev_usd:+.2f}",
+        f"  dd {conservative.max_drawdown_usd:.2f}, worst {conservative.worst_loss_usd:.2f}",
+        f"  llm err {_pct(e.llm_error_rate)}",
+        *(f"  overdue {o.market_id} {o.days_overdue:.1f}d {_status(o)}" for o in e.overdue),
+    ]
 
 
 def format_report(report: DailyReport) -> str:
     lines = [
-        f"Daily report {report.now:%Y-%m-%d} (config {report.config_version})",
-        "Primary: each arm's gate verdict (LLM arms vs baseline). All other cuts are exploratory.",
+        f"Daily report {report.now:%Y-%m-%d}",
+        f"config {report.config_version}",
+        "Primary: gate verdicts (LLM arms vs",
+        "baseline). All else is exploratory.",
     ]
     for strategy in STRATEGIES:
         lines += ["", f"== {strategy.upper()} =="]
         for e in (e for e in report.entries if e.strategy == strategy):
-            lines.append(_arm_line(e))
-            for o in e.overdue:
-                status = "disputed" if o.was_disputed else o.uma_status
-                lines.append(f"  overdue {o.market_id} {o.days_overdue:.1f}d {status} ({e.arm})")
+            lines += _arm_lines(e)
     return "\n".join(lines)
 
 

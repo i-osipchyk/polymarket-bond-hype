@@ -146,6 +146,16 @@ def test_report_gives_each_llm_arm_its_prompts_error_rate_for_today(storage):
     assert report.entry("baseline", "bond").llm_error_rate is None  # makes no LLM calls
 
 
+def _arm_block(section, arm):
+    """The header line `arm: ...` plus its indented detail lines."""
+    lines = section.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith(f"{arm}:"))
+    end = next(
+        (k for k in range(start + 1, len(lines)) if not lines[k].startswith(" ")), len(lines)
+    )
+    return "\n".join(lines[start:end])
+
+
 def test_formatted_report_shows_both_views_gate_status_and_overdue_positions(storage):
     opened = NOW - timedelta(days=12)
     for i in range(100):
@@ -161,17 +171,17 @@ def test_formatted_report_shows_both_views_gate_status_and_overdue_positions(sto
 
     text = format_report(build_report(storage, CONFIG, NOW))
     bond = text.split("HYPE")[0]
-    baseline = next(line for line in bond.splitlines() if line.startswith("baseline"))
+    baseline = _arm_block(bond, "baseline")
 
+    assert max(len(line) for line in text.splitlines()) <= 48
     assert "2026-10-04" in text and CONFIG.version in text
     assert "resolved n=100 EV +0.54" in baseline  # 0.55 less ~0.006 capital cost
     assert "conservative n=101 EV +0.44" in baseline  # overdue position counted as a total loss
     assert "win 100.0% vs break-even 94.5%" in baseline
     assert "cand 1" in baseline
     assert "gate PASS" in baseline
-    assert "overdue stuck 3.0d disputed" in bond
-    prompt_reject = next(line for line in bond.splitlines() if line.startswith("prompt_reject"))
-    assert "gate FAIL" in prompt_reject
+    assert "overdue stuck 3.0d disputed" in baseline
+    assert "gate FAIL" in _arm_block(bond, "prompt_reject")
     assert "exploratory" in text.lower()
 
 

@@ -102,3 +102,7 @@ Open-position state is derived from the event files. Dedup key: `arm + strategy 
 - New AWS accounts often cannot reserve concurrency (the unreserved pool must stay at 10 or more). Request a limit increase or set `reserve_concurrency = false` and accept the single-writer risk until then.
 
 Deploy order: create the SSM parameters, `terraform apply -target=aws_ecr_repository.app`, build for `linux/amd64` and push the image to that repository, then a full `terraform apply`, then the 24 h dry run before freezing config and prompt versions.
+
+## Pulling results for local analysis
+
+`python -m bondhype.pull --bucket <bucket>` mirrors S3 into `data/` with the same key layout, so `local_report`, `build_report` and `verdict` run on it unchanged. It is incremental and read-only on S3: keys already present locally are skipped without downloading (stored data is append-only, so they are final), and nothing is ever overwritten or deleted. Raw `books/` and `pricepath/` are skipped unless `--heavy`; `--prefix` (repeatable) narrows to specific prefixes. It uses your normal AWS credentials (`AWS_PROFILE`) and needs `s3:ListBucket` and `s3:GetObject`. `BONDHYPE_BUCKET` can replace `--bucket`.
