@@ -39,6 +39,10 @@ def positions_prefix(arm: str, strategy: str) -> str:
     return f"arms/{arm}/{strategy}/positions/"
 
 
+def position_key(arm: str, strategy: str, market_id: str) -> str:
+    return f"{positions_prefix(arm, strategy)}{market_id}.json"
+
+
 @dataclass(frozen=True)
 class Portfolio:
     balance_usd: float

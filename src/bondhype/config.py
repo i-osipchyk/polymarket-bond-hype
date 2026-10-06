@@ -57,10 +57,17 @@ class PortfolioRules(_Strict):
     cooldown_price_move: float = Field(ge=0, le=1)
 
 
+class LLMSettings(_Strict):
+    model: str
+    reject_prompt: str
+    buy_prompt: str
+
+
 class Config(_Strict):
     version: str
     order_size_usd: float
     prescreen_price_margin: float
+    llm: LLMSettings
     portfolio: PortfolioRules
     bond: BondFilters
     hype: HypeFilters

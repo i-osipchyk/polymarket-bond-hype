@@ -38,6 +38,7 @@ def parse_market(raw: dict) -> Market:
             no_token=tokens[1],
             outcomes=(outcomes[0], outcomes[1]),
             fee_schedule=_parse_fee_schedule(raw),
+            description=raw.get("description") or "",
         )
     except (KeyError, IndexError, TypeError, ValueError) as exc:
         raise ParseError(f"unexpected Gamma market shape: {exc!r}") from exc

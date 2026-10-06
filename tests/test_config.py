@@ -47,11 +47,19 @@ def _write_variant(tmp_path: Path, mutate) -> Path:
             lambda c: c["bond"].update(price_min=0.96, price_max=0.90), id="inverted-price-band"
         ),
         pytest.param(lambda c: c["hype"].update(yes_price_max=1.5), id="price-above-one"),
+        pytest.param(lambda c: c.pop("llm"), id="missing-llm-section"),
+        pytest.param(lambda c: c["llm"].pop("model"), id="missing-llm-model"),
     ],
 )
 def test_invalid_config_is_rejected_with_config_error(tmp_path, mutate):
     with pytest.raises(ConfigError):
         load_config(_write_variant(tmp_path, mutate))
+
+
+def test_valid_config_pins_the_llm_model_and_prompt_versions():
+    config = load_config(FIXTURES / "config_valid.yaml")
+    assert config.llm.model == "deepseek-flash"
+    assert (config.llm.reject_prompt, config.llm.buy_prompt) == ("reject_v1", "buy_v1")
 
 
 def test_missing_file_is_a_config_error(tmp_path):

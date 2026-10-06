@@ -36,3 +36,4 @@ class Market:
     no_token: str = ""
     outcomes: tuple[str, str] = ("Yes", "No")
     fee_schedule: FeeSchedule | None = None
+    description: str = ""

@@ -4,7 +4,7 @@ from datetime import datetime
 from bondhype.config import Config
 from bondhype.fills import UnsupportedFeeSchedule, simulate_fill
 from bondhype.models import Book, Market
-from bondhype.portfolio import PositionOpened, load_portfolio, positions_prefix
+from bondhype.portfolio import PositionOpened, load_portfolio, position_key
 from bondhype.storage import Storage
 
 
@@ -25,7 +25,7 @@ def open_position(
     book: Book,
     now: datetime,
 ) -> EntryResult:
-    key = f"{positions_prefix(arm, strategy)}{market.id}.json"
+    key = position_key(arm, strategy, market.id)
     if storage.exists(key):
         return EntryResult(position=None, rejection="duplicate_position")
     portfolio = load_portfolio(storage, config, arm, strategy)

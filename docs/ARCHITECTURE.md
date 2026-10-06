@@ -66,8 +66,8 @@ Open-position state is derived from the event files. Dedup key: `arm + strategy 
 - `markets`: Gamma client, market model, category and fee rate lookup.
 - `filters`: pure functions from market + book to pass/fail with raw values. Thresholds from config.
 - `books`: CLOB client, snapshot storage, book-walk fill simulation (pure and unit-testable against stored books).
-- `llm`: provider adapter (DeepSeek first), tool interface (no tools in v1), strict JSON schema validation, retry-once-then-error.
-- `arms`: routing rules for the five arms, caps (5 per event, 30% deployed), cooldowns.
+- `llm`: `review(snapshot, prompt, client, ...)` with strict schema validation, retry once then `error` (a reject), one stored call record per market, prompt and scan (a retried scan reuses it). Prompts are versioned text files in `prompts/`, selected by id in the config `llm` section together with the pinned model id. `deepseek` is the thin provider adapter (`DEEPSEEK_API_KEY` from the environment). No tools in v1.
+- `arms`: `route(reject, buy)` returns the arms that trade a rules-passing candidate; only an explicit buy counts, `error` is a reject. Caps and dedup stay per arm in `entry`; rejected arms get a cooldown record so the LLM is not re-called every scan. Without an LLM client, only `baseline` trades.
 - `portfolio`: balance, exposure, P&L per arm and strategy, derived from events.
 - `settlement`: resolution detection, overdue handling.
 - `stats`: gate computations (net EV, confidence intervals, break-even margin, drawdown, vs-baseline test). Single source of truth for the verdict.
