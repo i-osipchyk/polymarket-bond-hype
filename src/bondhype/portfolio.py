@@ -2,9 +2,13 @@ import json
 from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from bondhype.config import Config
 from bondhype.storage import Storage
+
+if TYPE_CHECKING:
+    from bondhype.settlement import Resolution
 
 
 @dataclass(frozen=True)
@@ -55,18 +59,37 @@ class Portfolio:
         return self.balance_usd + self.exposure_usd
 
     @classmethod
-    def from_events(cls, events: list[PositionOpened], starting_balance_usd: float) -> "Portfolio":
+    def from_events(
+        cls,
+        events: list[PositionOpened],
+        starting_balance_usd: float,
+        resolutions: "list[Resolution] | None" = None,
+    ) -> "Portfolio":
+        payouts = {r.market_id: r.payout_usd for r in resolutions or []}
+        open_events = [e for e in events if e.market_id not in payouts]
         return cls(
-            balance_usd=starting_balance_usd - sum(e.filled_usd + e.fee_usd for e in events),
-            exposure_usd=sum(e.filled_usd for e in events),
-            open_positions_by_event=dict(Counter(e.event_id for e in events)),
-            open_market_ids={e.market_id for e in events},
+            balance_usd=starting_balance_usd
+            - sum(e.filled_usd + e.fee_usd for e in events)
+            + sum(payouts.values()),
+            exposure_usd=sum(e.filled_usd for e in open_events),
+            open_positions_by_event=dict(Counter(e.event_id for e in open_events)),
+            open_market_ids={e.market_id for e in open_events},
         )
 
 
+def resolutions_prefix(arm: str, strategy: str) -> str:
+    return f"arms/{arm}/{strategy}/resolutions/"
+
+
 def load_portfolio(storage: Storage, config: Config, arm: str, strategy: str) -> Portfolio:
+    from bondhype.settlement import Resolution  # settlement imports this module
+
     events = [
         PositionOpened.from_json(storage.get(key))
         for key in storage.list(positions_prefix(arm, strategy))
     ]
-    return Portfolio.from_events(events, config.portfolio.starting_balance_usd)
+    resolutions = [
+        Resolution.from_json(storage.get(key))
+        for key in storage.list(resolutions_prefix(arm, strategy))
+    ]
+    return Portfolio.from_events(events, config.portfolio.starting_balance_usd, resolutions)

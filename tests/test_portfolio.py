@@ -43,3 +43,40 @@ def test_portfolio_is_derived_from_position_events():
     assert portfolio.bankroll_usd == pytest.approx(999.89)
     assert portfolio.open_positions_by_event == {"e1": 2, "e2": 1}
     assert portfolio.open_market_ids == {"m1", "m2", "m3"}
+
+
+def test_settled_positions_release_exposure_and_event_slots_and_credit_payouts():
+    from bondhype.settlement import Resolution
+
+    def resolution(market_id, outcome, payout_usd, pnl_usd) -> Resolution:
+        return Resolution(
+            arm="baseline",
+            strategy="bond",
+            market_id=market_id,
+            side="NO",
+            config_version="v1",
+            outcome=outcome,
+            payout_usd=payout_usd,
+            pnl_usd=pnl_usd,
+            resolved_at=OPENED_AT,
+            days_overdue=0.0,
+            uma_statuses=(),
+        )
+
+    events = [
+        opened("m1", "e1", 10.00, 0.04),
+        opened("m2", "e1", 10.00, 0.05),
+        opened("m3", "e2", 10.00, 0.02),
+    ]
+    resolutions = [
+        resolution("m1", "win", 10.75, 0.71),
+        resolution("m2", "loss", 0.0, -10.05),
+    ]
+
+    portfolio = Portfolio.from_events(events, 1000.0, resolutions)
+
+    # 1000 - 30 stake - 0.11 fees + 10.75 payout
+    assert portfolio.balance_usd == pytest.approx(980.64)
+    assert portfolio.exposure_usd == pytest.approx(10.0)
+    assert portfolio.open_positions_by_event == {"e2": 1}
+    assert portfolio.open_market_ids == {"m3"}

@@ -50,8 +50,9 @@ s3://<bucket>/
   llm_calls/date=.../                  prompt version, model id, full input, full output, tool calls
   arms/<arm>/<strategy>/
     positions/                         paper fills (avg price, slippage, fee, gross edge)
-    pricepath/                         open-position price and book snapshots
-    resolutions/                       outcome, dispute info, days overdue
+    pricepath/<market>/<date>T<hh>.json  hourly price and raw held-side book of an open position
+    resolutions/                       outcome, payout, P&L, dispute info, days overdue at resolution
+    overdue/<market>/<date>.json       daily status, price, dispute signals, conservative P&L
   reports/date=.../                    daily per-arm summaries
   state/                             small dedup and cooldown JSON files per day
   config/                            config versions
@@ -69,7 +70,7 @@ Open-position state is derived from the event files. Dedup key: `arm + strategy 
 - `llm`: `review(snapshot, prompt, client, ...)` with strict schema validation, retry once then `error` (a reject), one stored call record per market, prompt and scan (a retried scan reuses it). Prompts are versioned text files in `prompts/`, selected by id in the config `llm` section together with the pinned model id. `deepseek` is the thin provider adapter (`DEEPSEEK_API_KEY` from the environment). No tools in v1.
 - `arms`: `route(reject, buy)` returns the arms that trade a rules-passing candidate; only an explicit buy counts, `error` is a reject. Caps and dedup stay per arm in `entry`; rejected arms get a cooldown record so the LLM is not re-called every scan. Without an LLM client, only `baseline` trades.
 - `portfolio`: balance, exposure, P&L per arm and strategy, derived from events.
-- `settlement`: resolution detection, overdue handling.
+- `settlement`: pure `resolve(position, raw_market)` and `assess_overdue(position, raw_market, now)`. A market settles only when Gamma says `closed`, `umaResolutionStatus == "resolved"`, outcome prices are exactly 1/0 and `closedTime` parses; anything else (disputed, 50/50, malformed) stays unsettled, so the conservative view keeps it as a total loss. `track` (hourly) writes resolutions and price-path points; `overdue` (daily) writes overdue records. One failing market never blocks the others.
 - `stats`: gate computations (net EV, confidence intervals, break-even margin, drawdown, vs-baseline test). Single source of truth for the verdict.
 - `reporting`: Telegram bot, daily report, health alerts.
 - `storage`: S3 read and write helpers, deterministic keys, Parquet schemas.
