@@ -130,6 +130,12 @@ class OverdueReport:
         record = asdict(self) | {"was_disputed": self.was_disputed}
         return json.dumps(record, sort_keys=True, allow_nan=False).encode()
 
+    @classmethod
+    def from_json(cls, data: bytes) -> "OverdueReport":
+        record = json.loads(data)
+        record.pop("was_disputed")  # derived from uma_statuses
+        return cls(**record | {"uma_statuses": tuple(record["uma_statuses"])})
+
 
 def assess_overdue(
     position: PositionOpened, raw_market: dict, now: datetime

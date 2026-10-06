@@ -73,6 +73,10 @@ class GateRules(_Strict):
     bootstrap_seed: int
 
 
+class HealthRules(_Strict):
+    heartbeat_max_age_minutes: float = Field(gt=0)
+
+
 class Config(_Strict):
     version: str
     order_size_usd: float
@@ -82,6 +86,7 @@ class Config(_Strict):
     bond: BondFilters
     hype: HypeFilters
     gate: GateRules
+    health: HealthRules
 
 
 def load_config(path: Path) -> Config:

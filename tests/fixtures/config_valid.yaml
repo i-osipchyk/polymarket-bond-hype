@@ -36,3 +36,5 @@ gate:
   capital_cost_annual_rate: 0.05
   bootstrap_samples: 2000
   bootstrap_seed: 20261004
+health:
+  heartbeat_max_age_minutes: 45

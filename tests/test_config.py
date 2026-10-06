@@ -80,3 +80,7 @@ def test_valid_config_exposes_go_live_gate_thresholds():
 def test_config_without_gate_section_is_rejected(tmp_path):
     with pytest.raises(ConfigError):
         load_config(_write_variant(tmp_path, lambda c: c.pop("gate")))
+
+
+def test_valid_config_exposes_the_heartbeat_threshold():
+    assert load_config(FIXTURES / "config_valid.yaml").health.heartbeat_max_age_minutes == 45
