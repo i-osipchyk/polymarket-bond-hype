@@ -79,7 +79,7 @@ Open-position state is derived from the event files. Dedup key: `arm + strategy 
 
 - **Replayability:** the LLM sees stored snapshots only, and raw books are stored, so prompts and fill assumptions can be re-run on old candidates.
 - **Honest fills:** taker-only, book-walked, fee from the market's category rate at entry. Slippage, fee and gross edge are separate fields.
-- **Paired design:** every candidate that passes the rules goes to both prompts, and every arm sees the same data, so arms are directly comparable.
+- **Paired design:** every candidate that passes the rules goes to the buy prompt, and to the reject prompt too when the buy prompt says buy, so every arm sees the same data. A skipped reject prompt counts as no buy, which makes `prompt_reject` equal to `mix_and` and `mix_or` equal to `prompt_buy` by construction; all five arms are still recorded.
 - **No silent defaults:** LLM errors are treated as rejects. Missing data fails closed.
 - **Conservative accounting:** overdue positions count as total losses in the gate view.
 - **Single writer:** reserved concurrency of 1 on scanner and tracker avoids races, since S3 has no transactions.
@@ -109,6 +109,6 @@ Deploy order: create the SSM parameters, `terraform apply -target=aws_ecr_reposi
 
 ## Scan phases, concurrency and logging
 
-`scan` runs in three phases: (1) evaluate every market and collect candidates, (2) run the reject and buy reviews for all candidates an LLM arm could still trade, concurrently in a thread pool of `llm.max_workers`, (3) open positions sequentially in market order, so fills, caps, cooldowns and the single-writer rule behave as before. Reviews are independent and stored per call, so concurrency changes nothing about the results. A first scan with ~90 candidates makes ~180 calls (about 10 s each when sequential, over 30 minutes), so concurrency is what keeps it inside the Lambda limit (scanner timeout 900 s, the maximum). `llm.timeout_seconds` bounds each HTTP call (two attempts per review). Books are fetched in phase 1 and reused for entry, so on a heavy scan an entry book can be a few minutes old; every arm still uses the same snapshot.
+`scan` runs in three phases: (1) evaluate every market and collect candidates, (2) run the buy review for all candidates an LLM arm could still trade, then the reject review for the ones it said buy to, each phase concurrently in a thread pool of `llm.max_workers`, (3) open positions sequentially in market order, so fills, caps, cooldowns and the single-writer rule behave as before. Reviews are independent and stored per call, so concurrency changes nothing about the results. A first scan with ~90 candidates makes ~180 calls (about 10 s each when sequential, over 30 minutes), so concurrency is what keeps it inside the Lambda limit (scanner timeout 900 s, the maximum). `llm.timeout_seconds` bounds each HTTP call (two attempts per review). Books are fetched in phase 1 and reused for entry, so on a heavy scan an entry book can be a few minutes old; every arm still uses the same snapshot.
 
 Logging uses the standard `logging` module (INFO): Gamma pages fetched, progress every 100 markets, each candidate, each LLM call with verdict and duration (or `cached`), failed attempts as warnings, each position opened. `local_scan` prints them to the terminal; Lambda output goes to CloudWatch Logs.

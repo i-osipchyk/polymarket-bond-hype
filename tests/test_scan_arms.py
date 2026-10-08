@@ -132,6 +132,66 @@ def test_both_prompts_are_called_once_per_candidate_and_stored(tmp_path):
     assert len(storage.list("llm_calls/")) == 2
 
 
+def prompts_called(client) -> list[str]:
+    return [call["system"] for call in client.calls]
+
+
+def test_the_buy_prompt_runs_first_and_a_no_from_it_skips_the_reject_prompt(tmp_path):
+    storage = LocalStorage(tmp_path)
+    llm, client = setup("buy", "reject")  # the reject prompt would have said buy
+
+    run_scan(storage, llm)
+
+    assert prompts_called(client) == ["buy-by-default"]
+    assert [key.split("/")[3] for key in storage.list("llm_calls/")] == ["buy_v1"]
+    assert set(positions(storage)) == {"baseline"}
+
+
+def test_a_buy_from_the_buy_prompt_sends_the_market_to_the_reject_prompt_too(tmp_path):
+    llm, client = setup("reject", "buy")
+
+    run_scan(LocalStorage(tmp_path), llm)
+
+    assert prompts_called(client) == ["buy-by-default", "reject-by-default"]
+
+
+def test_buy_then_reject_veto_trades_only_the_buy_prompt_and_mix_or(tmp_path):
+    storage = LocalStorage(tmp_path)
+
+    run_scan(storage, setup("reject", "buy")[0])
+
+    assert set(positions(storage)) == {"baseline", "prompt_buy", "mix_or"}
+
+
+def test_buy_then_reject_buy_trades_every_arm(tmp_path):
+    storage = LocalStorage(tmp_path)
+
+    run_scan(storage, setup("buy", "buy")[0])
+
+    assert set(positions(storage)) == set(ARMS)
+
+
+def test_a_failed_buy_prompt_fails_closed_without_calling_the_reject_prompt(tmp_path):
+    storage = LocalStorage(tmp_path)
+    llm, client = setup("buy", "garbage")
+
+    run_scan(storage, llm)
+
+    assert prompts_called(client) == ["buy-by-default"] * 2  # one retry, then give up
+    assert set(positions(storage)) == {"baseline"}
+
+
+def test_a_market_the_buy_prompt_declined_is_cached_for_every_llm_arm(tmp_path):
+    storage = LocalStorage(tmp_path)
+    llm, client = setup("buy", "reject")
+    run_scan(storage, llm)
+    calls = len(client.calls)
+
+    run_scan(storage, llm, now=NOW + timedelta(minutes=15))
+
+    assert len(client.calls) == calls
+
+
 def test_rejected_arms_are_in_cooldown_so_the_next_scan_does_not_call_the_llm_again(tmp_path):
     storage = LocalStorage(tmp_path)
     llm, client = setup("reject", "reject")
@@ -281,9 +341,9 @@ class RendezvousClient:
 
 def test_llm_reviews_run_concurrently_and_the_outcome_is_unchanged(tmp_path):
     storage = LocalStorage(tmp_path)
-    raws, books = several_markets(2)  # 2 markets x 2 prompts = 4 calls that must overlap
+    raws, books = several_markets(2)  # each phase has 2 calls that must overlap
     llm = LLMSetup(
-        client=RendezvousClient(parties=4), reject=REJECT_PROMPT, buy=BUY_PROMPT, pricing=PRICING
+        client=RendezvousClient(parties=2), reject=REJECT_PROMPT, buy=BUY_PROMPT, pricing=PRICING
     )
 
     scan(raws, lambda token: books[token], storage, CONFIG, NOW, llm=llm)
@@ -307,14 +367,15 @@ def test_worker_count_comes_from_config(tmp_path):
 
 def test_the_run_logs_candidates_llm_calls_and_opened_positions(tmp_path, caplog):
     caplog.set_level(logging.INFO)
-    llm, _ = setup("buy", "reject")
+    llm, _ = setup("reject", "buy")
 
     market = run_scan(LocalStorage(tmp_path), llm)
 
     log = caplog.text
     assert "fetched and evaluated 1 markets" in log
     assert f"candidate {market['id']} bond NO" in log
-    assert "reviewing 1 candidates (2 LLM calls)" in log
-    assert f"llm {REJECT_PROMPT.id} {market['id']} -> buy" in log
-    assert f"llm {BUY_PROMPT.id} {market['id']} -> reject" in log
-    assert f"opened prompt_reject/bond NO on {market['id']}" in log
+    assert "reviewing 1 candidates with the buy prompt" in log
+    assert "1 passed the buy prompt, sending them to the reject prompt" in log
+    assert f"llm {BUY_PROMPT.id} {market['id']} -> buy" in log
+    assert f"llm {REJECT_PROMPT.id} {market['id']} -> reject" in log
+    assert f"opened prompt_buy/bond NO on {market['id']}" in log

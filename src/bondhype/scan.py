@@ -86,13 +86,17 @@ def _pending_arms(
     ]
 
 
+_SKIPPED = Verdict(
+    verdict="skipped", risk_flags=(), confidence=None, reason="buy prompt did not say buy"
+)
+
+
 def _review_all(
     candidates: list[_Candidate], storage: Storage, config: Config, now: datetime, llm: LLMSetup
 ) -> dict[str, tuple[Verdict, Verdict]]:
-    """Both prompts for every candidate that an LLM arm could still trade, run concurrently."""
+    """Buy prompt for every candidate an LLM arm could still trade; reject prompt only for those
+    it said buy to. Each phase runs concurrently. A skipped reject prompt counts as no buy."""
     to_review = [c for c in candidates if any(arm != "baseline" for arm in c.pending)]
-    tasks = [(c, prompt) for c in to_review for prompt in (llm.reject, llm.buy)]
-    logger.info("reviewing %d candidates (%d LLM calls)", len(to_review), len(tasks))
 
     def run(task: tuple[_Candidate, Prompt]) -> Verdict:
         candidate, prompt = task
@@ -108,9 +112,22 @@ def _review_all(
             now=now,
         )
 
-    with ThreadPoolExecutor(max_workers=config.llm.max_workers) as pool:
-        verdicts = list(pool.map(run, tasks))  # map keeps task order
-    return {c.market.id: (verdicts[2 * i], verdicts[2 * i + 1]) for i, c in enumerate(to_review)}
+    def run_all(tasks: list[tuple[_Candidate, Prompt]]) -> list[Verdict]:
+        with ThreadPoolExecutor(max_workers=config.llm.max_workers) as pool:
+            return list(pool.map(run, tasks))  # map keeps task order
+
+    logger.info("reviewing %d candidates with the buy prompt", len(to_review))
+    buy = {
+        c.market.id: v
+        for c, v in zip(to_review, run_all([(c, llm.buy) for c in to_review]), strict=True)
+    }
+    bought = [c for c in to_review if buy[c.market.id].verdict == "buy"]
+    logger.info("%d passed the buy prompt, sending them to the reject prompt", len(bought))
+    reject = {
+        c.market.id: v
+        for c, v in zip(bought, run_all([(c, llm.reject) for c in bought]), strict=True)
+    }
+    return {c.market.id: (reject.get(c.market.id, _SKIPPED), buy[c.market.id]) for c in to_review}
 
 
 def _enter_arms(

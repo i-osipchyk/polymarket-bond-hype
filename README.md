@@ -44,7 +44,7 @@ There is no hype-proxy filter in v1. Every candidate's raw values are logged, in
 - Output: strict JSON: `verdict` (`buy` | `reject`), `risk_flags` from a fixed vocabulary (`ambiguous_resolution`, `scheduled_catalyst`, `dispute_risk`, `thin_book`, `insider_risk`, `already_decided`), `confidence` (1–5), `reason`.
 - Failure handling: retry once, then record `error` and treat as reject. Never default to buy.
 - Model: DeepSeek Flash for the first run (exact model ID pinned in config), temperature 0, model fixed for the whole test.
-- Two prompts, both run on every candidate:
+- Two prompts, run in order on every candidate: the buy-by-default prompt first, and the reject-by-default prompt only when the buy prompt said buy (an error or a reject from the buy prompt skips it, which saves its cost). A skipped reject prompt counts as no buy, so `prompt_reject` trades exactly when `mix_and` does and `mix_or` exactly when `prompt_buy` does. The arms are still recorded separately:
   - **reject-by-default:** must justify a buy.
   - **buy-by-default:** must find a reason to reject.
 

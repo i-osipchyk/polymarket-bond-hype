@@ -1,4 +1,4 @@
-version: "v2"
+version: "v3"
 order_size_usd: 10
 prescreen_price_margin: 0.03
 llm:
