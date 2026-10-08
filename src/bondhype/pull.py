@@ -2,8 +2,11 @@
 
 import argparse
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+
+from tqdm import tqdm
 
 from bondhype.arms import ARMS
 from bondhype.settlement import STRATEGIES
@@ -28,17 +31,27 @@ def default_prefixes(include_heavy: bool = False) -> list[str]:
     return prefixes + heavy if include_heavy else prefixes
 
 
-def pull(source: Storage, dest: Storage, prefixes: list[str] | None = None) -> PullSummary:
+def pull(
+    source: Storage,
+    dest: Storage,
+    prefixes: list[str] | None = None,
+    *,
+    workers: int = 16,
+    progress: bool = False,
+) -> PullSummary:
     prefixes = default_prefixes() if prefixes is None else prefixes
-    copied = skipped = 0
-    for prefix in prefixes:
-        for key in source.list(prefix):
-            if dest.exists(key):
-                skipped += 1  # stored data is append-only, so a local copy is already final
-                continue
-            dest.put(key, source.get(key))
-            copied += 1
-    return PullSummary(copied, skipped)
+    wanted = [key for prefix in prefixes for key in source.list(prefix)]
+    # stored data is append-only, so a local copy is already final
+    missing = [key for key in wanted if not dest.exists(key)]
+
+    def copy(key: str) -> None:
+        dest.put(key, source.get(key))
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        # consuming the iterator surfaces any download error
+        for _ in tqdm(pool.map(copy, missing), total=len(missing), disable=not progress):
+            pass
+    return PullSummary(copied=len(missing), skipped=len(wanted) - len(missing))
 
 
 def main() -> None:
@@ -46,13 +59,20 @@ def main() -> None:
     parser.add_argument("--bucket", default=os.environ.get("BONDHYPE_BUCKET"))
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
     parser.add_argument("--prefix", action="append", help="repeatable; replaces the defaults")
+    parser.add_argument("--workers", type=int, default=16, help="parallel downloads")
     parser.add_argument("--heavy", action="store_true", help="also pull raw books and price paths")
     args = parser.parse_args()
     if not args.bucket:
         parser.error("pass --bucket or set BONDHYPE_BUCKET")
 
     prefixes = args.prefix or default_prefixes(include_heavy=args.heavy)
-    summary = pull(S3Storage(args.bucket), LocalStorage(args.data_dir), prefixes)
+    summary = pull(
+        S3Storage(args.bucket),
+        LocalStorage(args.data_dir),
+        prefixes,
+        workers=args.workers,
+        progress=True,
+    )
     print(f"copied {summary.copied}, already local {summary.skipped} -> {args.data_dir}")
 
 
