@@ -39,6 +39,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # TEMPORARY: show which OIDC subject GitHub issues, to debug the role's trust policy.
+      - name: Debug OIDC claims
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, urllib.request
+          req = urllib.request.Request(
+              os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=sts.amazonaws.com",
+              headers={"Authorization": "bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]},
+          )
+          token = json.load(urllib.request.urlopen(req))["value"]
+          body = token.split(".")[1]
+          claims = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+          print({k: claims.get(k) for k in ("sub", "aud", "repository", "ref", "event_name")})
+          PY
+          echo "role arn variable: '${{ vars.AWS_DEPLOY_ROLE_ARN }}'"
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
