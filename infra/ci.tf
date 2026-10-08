@@ -6,6 +6,18 @@ variable "github_repo" {
   default     = "i-osipchyk/polymarket-bond-hype"
 }
 
+variable "github_owner_id" {
+  description = "Numeric GitHub owner id; GitHub now puts it in the OIDC subject (repo:owner@id/name@id:...)."
+  type        = string
+  default     = "94493032"
+}
+
+variable "github_repo_id" {
+  description = "Numeric GitHub repository id, as in the OIDC subject. Ids survive renames, and a recreated repo gets a new one."
+  type        = string
+  default     = "1404411689"
+}
+
 variable "create_github_oidc_provider" {
   description = "Create the account's GitHub OIDC provider. Set false if it already exists (one per account)."
   type        = bool
@@ -24,6 +36,12 @@ data "aws_iam_openid_connect_provider" "github" {
 }
 
 locals {
+  github_owner = split("/", var.github_repo)[0]
+  github_name  = split("/", var.github_repo)[1]
+  github_main_subject = (
+    "repo:${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repo_id}:ref:refs/heads/main"
+  )
+
   github_oidc_arn = (
     var.create_github_oidc_provider
     ? aws_iam_openid_connect_provider.github[0].arn
@@ -46,7 +64,7 @@ data "aws_iam_policy_document" "deploy_assume" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/main"]
+      values   = [local.github_main_subject]
     }
   }
 }
