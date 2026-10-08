@@ -1,0 +1,75 @@
+name: deploy
+
+# Every push to main: test, build the Lambda image, push it to ECR and point the functions at it.
+# Infrastructure (infra/) is not applied here; run `terraform apply` locally when it changes.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY: bondhype
+  FUNCTIONS: scanner tracker overdue report heartbeat alarm
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run pytest -q
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Lambda rejects the image index that buildx adds with provenance attestations.
+      # :latest is what Terraform's image_uri points at, so updating the functions to it causes
+      # no drift; the commit tag is for traceability and rollbacks.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          provenance: false
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Point every function at the new image
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+        run: |
+          for fn in $FUNCTIONS; do
+            aws lambda update-function-code --function-name "bondhype-$fn" --image-uri "$IMAGE" > /dev/null
+          done
+          for fn in $FUNCTIONS; do
+            aws lambda wait function-updated --function-name "bondhype-$fn"
+            echo "bondhype-$fn updated"
+          done
