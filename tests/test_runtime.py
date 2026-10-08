@@ -10,6 +10,7 @@ ENV = {
     "BONDHYPE_BUCKET": "forward-test-bucket",
     "BONDHYPE_CONFIG": str(ROOT / "config" / "config.yaml"),
     "BONDHYPE_PROMPTS_DIR": str(ROOT / "prompts"),
+    "BONDHYPE_PRICING": str(ROOT / "deepseek_pricing.yaml"),
     "DEEPSEEK_API_KEY_PARAM": "/bondhype/deepseek",
     "TELEGRAM_BOT_TOKEN_PARAM": "/bondhype/telegram-token",
     "TELEGRAM_CHAT_ID_PARAM": "/bondhype/telegram-chat",

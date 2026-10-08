@@ -47,7 +47,7 @@ s3://<bucket>/
   markets/date=YYYY-MM-DD/...          market metadata snapshots
   candidates/date=.../                 every market evaluated, raw filter values, pass/fail + reason
   books/date=.../                      raw order book snapshots (the replayable input)
-  llm_calls/date=.../                  prompt version, model id, full input, full output, tool calls
+  llm_calls/date=.../                  prompt version, model id, full input, full output, per-attempt token usage and cost_usd, tool calls
   arms/<arm>/<strategy>/
     positions/                         paper fills (avg price, slippage, fee, gross edge)
     pricepath/<market>/<date>T<hh>.json  hourly price and raw held-side book of an open position
@@ -67,7 +67,7 @@ Open-position state is derived from the event files. Dedup key: `arm + strategy 
 - `markets`: Gamma client, market model, category and fee rate lookup.
 - `filters`: pure functions from market + book to pass/fail with raw values. Thresholds from config.
 - `books`: CLOB client, snapshot storage, book-walk fill simulation (pure and unit-testable against stored books).
-- `llm`: `review(snapshot, prompt, client, ...)` with strict schema validation, retry once then `error` (a reject), one stored call record per market, prompt and scan (a retried scan reuses it). Prompts are versioned text files in `prompts/`, selected by id in the config `llm` section together with the pinned model id. `deepseek` is the thin provider adapter (`DEEPSEEK_API_KEY` from the environment). No tools in v1.
+- `llm`: `review(snapshot, prompt, client, ...)` with strict schema validation, retry once then `error` (a reject), one stored call record per market, prompt and scan (a retried scan reuses it). Prompts are versioned text files in `prompts/`, selected by id in the config `llm` section together with the pinned model id. `deepseek` is the thin provider adapter (`DEEPSEEK_API_KEY` from the environment); it returns the text with the API's token usage (cache hit, cache miss, output). `pricing` prices each attempt from `deepseek_pricing.yaml` (USD per 1M tokens, peak or off-peak by the UTC scan time, windows include their start and exclude their end; path in `BONDHYPE_PRICING`). Failed calls carry no usage and cost nothing; a rejected reply is still billed; a model missing from the price table leaves `cost_usd` null rather than failing the review. Records written before this change have no usage. No tools in v1.
 - `arms`: `route(reject, buy)` returns the arms that trade a rules-passing candidate; only an explicit buy counts, `error` is a reject. Caps and dedup stay per arm in `entry`; rejected arms get a cooldown record so the LLM is not re-called every scan. Without an LLM client, only `baseline` trades.
 - `portfolio`: balance, exposure, P&L per arm and strategy, derived from events.
 - `settlement`: pure `resolve(position, raw_market)` and `assess_overdue(position, raw_market, now)`. A market settles only when Gamma says `closed`, `umaResolutionStatus == "resolved"`, outcome prices are exactly 1/0 and `closedTime` parses; anything else (disputed, 50/50, malformed) stays unsettled, so the conservative view keeps it as a total loss. `track` (hourly) writes resolutions and price-path points; `overdue` (daily) writes overdue records. One failing market never blocks the others.

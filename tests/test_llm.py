@@ -1,11 +1,15 @@
 import json
 import logging
+from pathlib import Path
 
 import pytest
 
-from bondhype.llm import LLMError, Prompt, Verdict, review
+from bondhype.llm import Completion, LLMError, Prompt, Usage, Verdict, review
+from bondhype.pricing import load_pricing
 from bondhype.storage import LocalStorage
 from builders import NOW
+
+PRICING = load_pricing(Path(__file__).parent.parent / "deepseek_pricing.yaml")
 
 PROMPT = Prompt(id="reject_v1", system="Find a reason to reject.")
 SNAPSHOT = {"question": "Will X happen?", "side": "NO", "ask": 0.93}
@@ -15,7 +19,7 @@ BUY = json.dumps(
 
 
 class FakeClient:
-    """Plays back canned replies; an Exception instance is raised instead of returned."""
+    """Plays back canned replies (text or Completion); an Exception instance is raised instead."""
 
     def __init__(self, *replies):
         self.replies = list(replies)
@@ -26,15 +30,16 @@ class FakeClient:
         reply = self.replies.pop(0)
         if isinstance(reply, Exception):
             raise reply
-        return reply
+        return reply if isinstance(reply, Completion) else Completion(text=reply)
 
 
-def run(client, tmp_path):
+def run(client, tmp_path, model="deepseek-flash"):
     return review(
         SNAPSHOT,
         PROMPT,
         client,
-        model="deepseek-flash",
+        model=model,
+        pricing=PRICING,
         storage=LocalStorage(tmp_path),
         market_id="m1",
         config_version="v-test",
@@ -140,7 +145,7 @@ def test_call_is_stored_with_full_prompt_input_raw_output_and_versions(tmp_path)
     assert record["config_version"] == "v-test"
     assert record["system"] == "Find a reason to reject."
     assert json.loads(record["user"]) == SNAPSHOT
-    assert record["attempts"] == [{"output": BUY, "error": None}]
+    assert [(a["output"], a["error"]) for a in record["attempts"]] == [(BUY, None)]
     assert record["verdict"]["verdict"] == "buy"
 
 
@@ -149,7 +154,7 @@ def test_failed_attempts_and_the_error_verdict_are_stored_too(tmp_path):
 
     (record,) = stored_calls(tmp_path)
     assert record["verdict"]["verdict"] == "error"
-    assert record["attempts"][0] == {"output": None, "error": "HTTP 503"}
+    assert (record["attempts"][0]["output"], record["attempts"][0]["error"]) == (None, "HTTP 503")
     assert record["attempts"][1]["output"] == "garbage"
     assert record["attempts"][1]["error"]
 
@@ -217,3 +222,49 @@ def test_configured_prompts_exist_and_state_the_whole_output_contract():
             assert flag in prompt.system
         for field in ("verdict", "risk_flags", "confidence", "reason"):
             assert field in prompt.system
+
+
+USAGE = Usage(cache_hit_tokens=350, cache_miss_tokens=150, output_tokens=80)
+USAGE_COST = 0.00007155  # off-peak at NOW (12:00 UTC): (350 * 0.003 + 150 * 0.15 + 80 * 0.60) / 1e6
+
+
+def test_each_attempt_stores_its_token_usage_and_cost_and_the_record_stores_the_total(tmp_path):
+    run(FakeClient(Completion(BUY, USAGE)), tmp_path)
+
+    (record,) = stored_calls(tmp_path)
+    (attempt,) = record["attempts"]
+    assert attempt["usage"] == {
+        "cache_hit_tokens": 350,
+        "cache_miss_tokens": 150,
+        "output_tokens": 80,
+    }
+    assert attempt["cost_usd"] == pytest.approx(USAGE_COST)
+    assert record["cost_usd"] == pytest.approx(USAGE_COST)
+
+
+def test_a_rejected_reply_is_still_billed_and_a_failed_call_is_not(tmp_path):
+    client = FakeClient(LLMError("HTTP 402"), Completion("garbage", USAGE))
+
+    run(client, tmp_path)
+
+    (record,) = stored_calls(tmp_path)
+    failed, garbled = record["attempts"]
+    assert failed["usage"] is None and failed["cost_usd"] is None
+    assert garbled["cost_usd"] == pytest.approx(USAGE_COST)
+    assert record["cost_usd"] == pytest.approx(USAGE_COST)
+
+
+def test_the_record_cost_adds_up_every_billed_attempt(tmp_path):
+    run(FakeClient(Completion("garbage", USAGE), Completion(BUY, USAGE)), tmp_path)
+
+    (record,) = stored_calls(tmp_path)
+    assert record["cost_usd"] == pytest.approx(2 * USAGE_COST)
+
+
+def test_a_model_without_a_price_still_gets_its_verdict_with_the_cost_left_blank(tmp_path):
+    verdict = run(FakeClient(Completion(BUY, USAGE)), tmp_path, model="deepseek-mystery")
+
+    (record,) = stored_calls(tmp_path)
+    assert verdict.verdict == "buy"
+    assert record["cost_usd"] is None
+    assert record["attempts"][0]["usage"]["output_tokens"] == 80

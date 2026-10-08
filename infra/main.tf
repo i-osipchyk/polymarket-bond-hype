@@ -146,6 +146,7 @@ resource "aws_lambda_function" "fn" {
       BONDHYPE_BUCKET          = aws_s3_bucket.data.bucket
       BONDHYPE_CONFIG          = "/var/task/config/config.yaml"
       BONDHYPE_PROMPTS_DIR     = "/var/task/prompts"
+      BONDHYPE_PRICING         = "/var/task/deepseek_pricing.yaml"
       DEEPSEEK_API_KEY_PARAM   = "${var.ssm_prefix}/deepseek-api-key"
       TELEGRAM_BOT_TOKEN_PARAM = "${var.ssm_prefix}/telegram-bot-token"
       TELEGRAM_CHAT_ID_PARAM   = "${var.ssm_prefix}/telegram-chat-id"

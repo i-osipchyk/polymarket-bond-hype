@@ -4,7 +4,7 @@ import json
 import urllib.error
 import urllib.request
 
-from bondhype.llm import LLMError
+from bondhype.llm import Completion, LLMError, Usage
 
 BASE_URL = "https://api.deepseek.com"
 
@@ -15,7 +15,7 @@ class DeepSeekClient:
         self._base_url = base_url
         self._timeout = timeout
 
-    def complete(self, *, model: str, system: str, user: str) -> str:
+    def complete(self, *, model: str, system: str, user: str) -> Completion:
         body = {
             "model": model,
             "temperature": 0,
@@ -35,7 +35,16 @@ class DeepSeekClient:
         )
         try:
             with urllib.request.urlopen(request, timeout=self._timeout) as response:
-                return json.load(response)["choices"][0]["message"]["content"]
+                payload = json.load(response)
+            usage = payload.get("usage") or {}
+            return Completion(
+                text=payload["choices"][0]["message"]["content"],
+                usage=Usage(
+                    cache_hit_tokens=usage.get("prompt_cache_hit_tokens", 0),
+                    cache_miss_tokens=usage.get("prompt_cache_miss_tokens", 0),
+                    output_tokens=usage.get("completion_tokens", 0),
+                ),
+            )
         except (
             urllib.error.URLError,
             TimeoutError,

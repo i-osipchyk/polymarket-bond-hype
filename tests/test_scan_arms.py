@@ -8,11 +8,14 @@ import pytest
 
 from bondhype.arms import ARMS
 from bondhype.config import load_config
-from bondhype.llm import LLMSetup, Prompt
+from bondhype.llm import Completion, LLMSetup, Prompt
 from bondhype.portfolio import positions_prefix
+from bondhype.pricing import load_pricing
 from bondhype.scan import scan
 from bondhype.storage import LocalStorage
 from builders import NOW
+
+PRICING = load_pricing(Path(__file__).parent.parent / "deepseek_pricing.yaml")
 
 CONFIG = load_config(Path(__file__).parent / "fixtures" / "config_valid.yaml")
 LIVE = Path(__file__).parent / "fixtures" / "live"
@@ -40,13 +43,13 @@ class PromptAwareClient:
         self.calls.append({"system": system, "user": user})
         said = self.by_system[system]
         if said == "garbage":
-            return "garbage"
-        return verdict_json(said)
+            return Completion("garbage")
+        return Completion(verdict_json(said))
 
 
 def setup(reject_says: str, buy_says: str) -> tuple[LLMSetup, PromptAwareClient]:
     client = PromptAwareClient(reject_says, buy_says)
-    return LLMSetup(client=client, reject=REJECT_PROMPT, buy=BUY_PROMPT), client
+    return LLMSetup(client=client, reject=REJECT_PROMPT, buy=BUY_PROMPT, pricing=PRICING), client
 
 
 def bond_market_and_books():
@@ -203,13 +206,15 @@ class RendezvousClient:
 
     def complete(self, *, model, system, user):
         self._barrier.wait()
-        return verdict_json("buy")
+        return Completion(verdict_json("buy"))
 
 
 def test_llm_reviews_run_concurrently_and_the_outcome_is_unchanged(tmp_path):
     storage = LocalStorage(tmp_path)
     raws, books = several_markets(2)  # 2 markets x 2 prompts = 4 calls that must overlap
-    llm = LLMSetup(client=RendezvousClient(parties=4), reject=REJECT_PROMPT, buy=BUY_PROMPT)
+    llm = LLMSetup(
+        client=RendezvousClient(parties=4), reject=REJECT_PROMPT, buy=BUY_PROMPT, pricing=PRICING
+    )
 
     scan(raws, lambda token: books[token], storage, CONFIG, NOW, llm=llm)
 
@@ -222,7 +227,9 @@ def test_worker_count_comes_from_config(tmp_path):
     storage = LocalStorage(tmp_path)
     raws, books = several_markets(2)
     one_worker = CONFIG.model_copy(update={"llm": CONFIG.llm.model_copy(update={"max_workers": 1})})
-    llm = LLMSetup(client=RendezvousClient(parties=2), reject=REJECT_PROMPT, buy=BUY_PROMPT)
+    llm = LLMSetup(
+        client=RendezvousClient(parties=2), reject=REJECT_PROMPT, buy=BUY_PROMPT, pricing=PRICING
+    )
 
     with pytest.raises(threading.BrokenBarrierError):  # one worker can never meet at the barrier
         scan(raws, lambda token: books[token], storage, one_worker, NOW, llm=llm)

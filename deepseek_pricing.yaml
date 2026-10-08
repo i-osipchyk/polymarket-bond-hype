@@ -1,0 +1,10 @@
+peak_windows_utc:
+  - "01:00-04:00"
+  - "06:00-10:00"
+models:
+  deepseek-flash:
+    off_peak: {cache_hit: 0.003, cache_miss: 0.15, output: 0.60}
+    peak: {cache_hit: 0.006, cache_miss: 0.30, output: 1.20}
+  deepseek-v4-pro:  # check this id against the API before using it
+    off_peak: {cache_hit: 0.022, cache_miss: 0.66, output: 1.98}
+    peak: {cache_hit: 0.044, cache_miss: 1.32, output: 3.96}

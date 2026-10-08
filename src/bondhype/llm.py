@@ -8,6 +8,7 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from bondhype.pricing import Pricing, UnknownModel, Usage, call_cost
 from bondhype.storage import Storage
 
 logger = logging.getLogger(__name__)
@@ -17,8 +18,14 @@ class LLMError(Exception):
     """The provider call failed."""
 
 
+@dataclass(frozen=True)
+class Completion:
+    text: str
+    usage: Usage = Usage()
+
+
 class LLMClient(Protocol):
-    def complete(self, *, model: str, system: str, user: str) -> str: ...
+    def complete(self, *, model: str, system: str, user: str) -> Completion: ...
 
 
 @dataclass(frozen=True)
@@ -36,6 +43,7 @@ class LLMSetup:
     client: "LLMClient"
     reject: Prompt
     buy: Prompt
+    pricing: Pricing
 
 
 @dataclass(frozen=True)
@@ -92,6 +100,7 @@ def review(
     client: LLMClient,
     *,
     model: str,
+    pricing: Pricing,
     storage: Storage,
     market_id: str,
     config_version: str,
@@ -109,18 +118,20 @@ def review(
     verdict = None
     for number in range(1, MAX_ATTEMPTS + 1):
         try:
-            reply = client.complete(model=model, system=prompt.system, user=user)
+            completion = client.complete(model=model, system=prompt.system, user=user)
         except LLMError as exc:
-            attempts.append({"output": None, "error": str(exc)})
+            attempts.append({"output": None, "error": str(exc), "usage": None, "cost_usd": None})
             logger.warning("llm %s %s attempt %d failed: %s", prompt.id, market_id, number, exc)
             continue
+        reply = completion.text
+        billing = _billing(completion.usage, model, pricing, now)
         try:
             verdict = _parse(reply)
         except ValueError as exc:
-            attempts.append({"output": reply, "error": str(exc)})
+            attempts.append({"output": reply, "error": str(exc)} | billing)
             logger.warning("llm %s %s attempt %d failed: %s", prompt.id, market_id, number, exc)
             continue
-        attempts.append({"output": reply, "error": None})
+        attempts.append({"output": reply, "error": None} | billing)
         break
     if verdict is None:
         verdict = Verdict(verdict="error", risk_flags=(), confidence=None, reason="no valid reply")
@@ -132,6 +143,7 @@ def review(
         "system": prompt.system,
         "user": user,
         "attempts": attempts,
+        "cost_usd": _total_cost(attempts),
         "verdict": asdict(verdict),
     }
     storage.put(key, json.dumps(record, sort_keys=True).encode())
@@ -143,6 +155,23 @@ def review(
         time.monotonic() - started,
     )
     return verdict
+
+
+def _billing(usage: Usage, model: str, pricing: Pricing, now: datetime) -> dict:
+    try:
+        cost = call_cost(usage, model, now, pricing)
+    except UnknownModel:
+        logger.warning("no price for model %s; cost left blank", model)
+        cost = None
+    return {"usage": asdict(usage), "cost_usd": cost}
+
+
+def _total_cost(attempts: list[dict]) -> float | None:
+    """Failed calls cost nothing; if any billed attempt could not be priced the total is unknown."""
+    billed = [a for a in attempts if a["usage"] is not None]
+    if any(a["cost_usd"] is None for a in billed):
+        return None
+    return sum(a["cost_usd"] for a in billed)
 
 
 def _stored_verdict(raw: dict) -> dict:

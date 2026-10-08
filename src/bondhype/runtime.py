@@ -9,6 +9,7 @@ from bondhype import clients
 from bondhype.config import Config, load_config
 from bondhype.deepseek import DeepSeekClient
 from bondhype.llm import LLMSetup, load_prompt
+from bondhype.pricing import load_pricing
 from bondhype.storage import S3Storage, Storage
 from bondhype.telegram import TelegramClient
 
@@ -67,6 +68,7 @@ def build_runtime(
             "BONDHYPE_BUCKET",
             "BONDHYPE_CONFIG",
             "BONDHYPE_PROMPTS_DIR",
+            "BONDHYPE_PRICING",
             "DEEPSEEK_API_KEY_PARAM",
             "TELEGRAM_BOT_TOKEN_PARAM",
             "TELEGRAM_CHAT_ID_PARAM",
@@ -83,6 +85,7 @@ def build_runtime(
             ),
             reject=load_prompt(prompts_dir, config.llm.reject_prompt),
             buy=load_prompt(prompts_dir, config.llm.buy_prompt),
+            pricing=load_pricing(Path(names["BONDHYPE_PRICING"])),
         ),
         send=TelegramClient(
             read_secret(names["TELEGRAM_BOT_TOKEN_PARAM"]),

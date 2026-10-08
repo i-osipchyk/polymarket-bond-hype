@@ -102,6 +102,7 @@ def _review_all(
             prompt,
             llm.client,
             model=config.llm.model,
+            pricing=llm.pricing,
             storage=storage,
             market_id=candidate.market.id,
             config_version=config.version,

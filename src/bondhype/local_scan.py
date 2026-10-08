@@ -10,6 +10,7 @@ from bondhype import clients
 from bondhype.config import load_config
 from bondhype.deepseek import DeepSeekClient
 from bondhype.llm import LLMSetup, load_prompt
+from bondhype.pricing import load_pricing
 from bondhype.scan import scan
 from bondhype.storage import LocalStorage
 
@@ -29,6 +30,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=Path("config/config.yaml"))
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
     parser.add_argument("--prompts-dir", type=Path, default=Path("prompts"))
+    parser.add_argument("--pricing", type=Path, default=Path("deepseek_pricing.yaml"))
     parser.add_argument("--no-llm", action="store_true", help="baseline arm only")
     args = parser.parse_args()
 
@@ -45,6 +47,7 @@ def main() -> None:
             ),
             reject=load_prompt(args.prompts_dir, config.llm.reject_prompt),
             buy=load_prompt(args.prompts_dir, config.llm.buy_prompt),
+            pricing=load_pricing(args.pricing),
         )
     now = datetime.now(UTC).replace(microsecond=0)
     window_days = max(config.bond.days_to_resolution_max, config.hype.days_to_resolution_max)
