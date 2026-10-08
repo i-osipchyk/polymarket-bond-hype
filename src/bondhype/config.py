@@ -52,7 +52,6 @@ class HypeFilters(_Strict):
 class PortfolioRules(_Strict):
     starting_balance_usd: float = Field(gt=0)
     max_positions_per_event: int = Field(gt=0)
-    max_deployed_fraction: float = Field(gt=0, le=1)
     cooldown_price_move: float = Field(ge=0, le=1)
 
 

@@ -193,12 +193,12 @@ def test_heartbeat_is_ok_when_the_latest_scan_is_recent(storage):
 
 
 def test_heartbeat_alerts_when_the_latest_scan_is_older_than_the_limit(storage):
-    _store_scan(storage, NOW - timedelta(minutes=50), [None])
+    _store_scan(storage, NOW - timedelta(minutes=100), [None])
 
     beat = check_heartbeat(storage, CONFIG, NOW)
 
     assert not beat.ok
-    assert "50 min" in beat.message
+    assert "100 min" in beat.message
 
 
 def test_heartbeat_alerts_when_no_scan_output_exists(storage):

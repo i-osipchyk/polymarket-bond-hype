@@ -10,7 +10,6 @@ llm:
 portfolio:
   starting_balance_usd: 1000
   max_positions_per_event: 5
-  max_deployed_fraction: 0.30
   cooldown_price_move: 0.03
 bond:
   price_min: 0.90
@@ -38,4 +37,4 @@ gate:
   bootstrap_samples: 2000
   bootstrap_seed: 20261004
 health:
-  heartbeat_max_age_minutes: 45
+  heartbeat_max_age_minutes: 90

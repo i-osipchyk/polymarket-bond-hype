@@ -22,7 +22,6 @@ def test_valid_config_exposes_filter_thresholds():
     assert config.prescreen_price_margin == 0.03
     assert config.portfolio.starting_balance_usd == 1000
     assert config.portfolio.max_positions_per_event == 5
-    assert config.portfolio.max_deployed_fraction == 0.30
     assert config.portfolio.cooldown_price_move == 0.03
     assert (config.hype.yes_price_min, config.hype.yes_price_max) == (0.05, 0.25)
     assert config.hype.max_spread == 0.03
@@ -83,7 +82,7 @@ def test_config_without_gate_section_is_rejected(tmp_path):
 
 
 def test_valid_config_exposes_the_heartbeat_threshold():
-    assert load_config(FIXTURES / "config_valid.yaml").health.heartbeat_max_age_minutes == 45
+    assert load_config(FIXTURES / "config_valid.yaml").health.heartbeat_max_age_minutes == 90
 
 
 def test_valid_config_exposes_llm_concurrency_and_timeout():

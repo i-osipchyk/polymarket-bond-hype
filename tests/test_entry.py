@@ -82,21 +82,6 @@ def test_sixth_position_in_one_event_is_rejected_but_another_event_is_not(tmp_pa
     assert other_event.position is not None
 
 
-def test_thirty_percent_of_the_bankroll_is_the_deployed_ceiling(tmp_path):
-    storage = LocalStorage(tmp_path)
-    fee_free = FeeSchedule(rate=0.0, exponent=1, enabled=False)
-
-    def market(i):
-        return make_market(id=f"m{i}", event_id=f"e{i}", fee_schedule=fee_free)
-
-    for i in range(30):  # 30 x $10 = $300 = 30% of $1,000
-        assert enter(storage, market(i)).position is not None
-
-    result = enter(storage, market(30))
-    assert result.position is None
-    assert result.rejection == "deployed_cap"
-
-
 @pytest.mark.parametrize(
     "market_overrides,book,rejection",
     [

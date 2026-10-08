@@ -14,11 +14,11 @@ Technical design for the forward test described in [README.md](../README.md). Co
 
 | Job | Cadence | Concurrency | Does |
 |---|---|---|---|
-| `scanner` | every 15 min | reserved = 1 | list markets, apply rule filters, snapshot books for candidates, call LLM prompts, open paper positions per arm |
+| `scanner` | hourly | reserved = 1 | list markets, apply rule filters, snapshot books for candidates, call LLM prompts, open paper positions per arm |
 | `tracker` | hourly | reserved = 1 | snapshot open positions (price path, book), detect resolutions, compute settlements |
 | `overdue` | daily | 1 | analyse positions unresolved past end date (status, price, dispute signals) |
 | `report` | daily | 1 | per-arm summary and gate status to Telegram, written to S3 |
-| `heartbeat` | every 15 min | 1 | dead man's switch: alert if no scan output in the last 45 minutes |
+| `heartbeat` | hourly | 1 | dead man's switch: alert if no scan output in the last 90 minutes |
 
 Also a CloudWatch alarm on Lambda errors, routed to Telegram.
 
@@ -97,7 +97,7 @@ Open-position state is derived from the event files. Dedup key: `arm + strategy 
 - `handlers.py`: one `run_*` function per job over a `Runtime` (storage, config, LLM setup, Telegram `send`, API fetchers). Tracker and overdue send a Telegram alert listing any market that failed; the report is stored once per day (a rerun re-sends but keeps the first stored copy); `run_alarm` forwards CloudWatch alarm state changes from SNS. `lambda_entry.py` holds the one-line Lambda entry points; they use the EventBridge schedule time as `now`, so a retried invocation writes the same keys.
 - `runtime.build_runtime(env)`: bucket, config path and prompts dir from env; secrets are read from SSM SecureString parameters named in env (`{prefix}/deepseek-api-key`, `/telegram-bot-token`, `/telegram-chat-id`), created by hand and never in Terraform state. Missing settings fail fast.
 - `Dockerfile`: one image for all functions; config and prompts are baked in, so an image pins both versions. Each function sets its own handler through `image_config.command`.
-- `infra/` (Terraform): S3 bucket (versioned, encrypted, private), ECR, one least-privilege role per function (no `s3:DeleteObject`; only scanner, tracker, overdue and report may `PutObject`), EventBridge schedules (scanner and heartbeat every 15 min, tracker hourly, overdue 06:00 and report 07:00 UTC), reserved concurrency 1 on scanner and tracker, an Errors alarm per job feeding an SNS topic and the `alarm` function.
+- `infra/` (Terraform): S3 bucket (versioned, encrypted, private), ECR, one least-privilege role per function (no `s3:DeleteObject`; only scanner, tracker, overdue and report may `PutObject`), EventBridge schedules (scanner, heartbeat and tracker hourly, overdue 06:00 and report 07:00 UTC), reserved concurrency 1 on scanner and tracker, an Errors alarm per job feeding an SNS topic and the `alarm` function.
 - Every function reads all three secrets because the shared runtime builds the LLM and Telegram clients, so the IAM grant is the same set of three parameters, not per-function.
 - New AWS accounts often cannot reserve concurrency (the unreserved pool must stay at 10 or more). Request a limit increase or set `reserve_concurrency = false` and accept the single-writer risk until then.
 

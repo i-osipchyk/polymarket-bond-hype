@@ -32,9 +32,6 @@ def open_position(
     open_in_event = portfolio.open_positions_by_event.get(market.event_id, 0)
     if open_in_event >= config.portfolio.max_positions_per_event:
         return EntryResult(position=None, rejection="event_cap")
-    ceiling = config.portfolio.max_deployed_fraction * portfolio.bankroll_usd
-    if portfolio.exposure_usd + config.order_size_usd > ceiling + 1e-9:
-        return EntryResult(position=None, rejection="deployed_cap")
     if market.fee_schedule is None:
         return EntryResult(position=None, rejection="fee_schedule_missing")
     try:

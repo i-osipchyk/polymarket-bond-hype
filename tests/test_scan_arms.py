@@ -9,11 +9,11 @@ import pytest
 from bondhype.arms import ARMS
 from bondhype.config import load_config
 from bondhype.llm import Completion, LLMSetup, Prompt
-from bondhype.portfolio import positions_prefix
+from bondhype.portfolio import position_key, positions_prefix
 from bondhype.pricing import load_pricing
 from bondhype.scan import scan
 from bondhype.storage import LocalStorage
-from builders import NOW
+from builders import NOW, make_position
 
 PRICING = load_pricing(Path(__file__).parent.parent / "deepseek_pricing.yaml")
 
@@ -235,45 +235,51 @@ def test_a_move_of_under_3_cents_either_way_keeps_the_market_cached(tmp_path, as
     assert len(client.calls) == calls
 
 
-NO_ROOM = CONFIG.model_copy(
-    update={
-        "portfolio": CONFIG.portfolio.model_copy(
-            update={"max_deployed_fraction": CONFIG.order_size_usd / 10_000}
-        )
-    }
-)
+def fill_event_cap(storage):
+    """Gives every arm the maximum open positions in the fixture market's event."""
+    market, _ = bond_market_and_books()
+    event_id = market["events"][0]["id"]
+    for arm in ARMS:
+        for i in range(CONFIG.portfolio.max_positions_per_event):
+            seed = make_position(f"seed-{i}", arm=arm, event_id=event_id)
+            storage.put(position_key(arm, "bond", seed.market_id), seed.to_json())
 
 
 def test_an_arm_whose_entry_is_refused_is_cached_like_a_rejection(tmp_path):
     storage = LocalStorage(tmp_path)
+    fill_event_cap(storage)
     llm, client = setup("buy", "buy")
-    run_scan(storage, llm, config=NO_ROOM)
-    assert positions(storage) == {}  # every entry hit the deployed cap
+    run_scan(storage, llm)
+    # every entry hit the event cap: only the seeded positions exist
+    assert all(len(storage.list(positions_prefix(arm, "bond"))) == 5 for arm in ARMS)
     calls = len(client.calls)
 
-    run_scan(storage, llm, now=NOW + timedelta(minutes=15), config=NO_ROOM)
+    run_scan(storage, llm, now=NOW + timedelta(minutes=15))
 
     assert len(client.calls) == calls
 
 
 def test_a_refused_entry_is_reviewed_again_when_the_price_moves_3_cents(tmp_path):
     storage = LocalStorage(tmp_path)
+    fill_event_cap(storage)
     llm, client = setup("buy", "buy")
-    run_scan(storage, llm, config=NO_ROOM)
+    run_scan(storage, llm)
     calls = len(client.calls)
 
-    run_scan(storage, llm, now=NOW + timedelta(minutes=15), ask=0.90, config=NO_ROOM)
+    run_scan(storage, llm, now=NOW + timedelta(minutes=15), ask=0.90)
 
     assert len(client.calls) == calls + 2
 
 
 def test_a_refused_entry_is_logged_with_the_arm_and_the_reason(tmp_path, caplog):
     caplog.set_level(logging.INFO)
+    storage = LocalStorage(tmp_path)
+    fill_event_cap(storage)
 
-    run_scan(LocalStorage(tmp_path), setup("buy", "buy")[0], config=NO_ROOM)
+    run_scan(storage, setup("buy", "buy")[0])
 
     assert "entry refused prompt_buy/bond" in caplog.text
-    assert "deployed_cap" in caplog.text
+    assert "event_cap" in caplog.text
 
 
 def test_an_arm_that_already_holds_the_market_is_not_charged_again(tmp_path):

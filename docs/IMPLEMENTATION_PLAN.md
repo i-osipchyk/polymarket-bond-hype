@@ -23,7 +23,7 @@ Build order for the design in [../README.md](../README.md) and [ARCHITECTURE.md]
 ## Phase 2: Paper fills and portfolio
 
 - Book-walk fill simulation: average price, slippage, shares, fee from the category rate (read at entry), gross edge.
-- Position model and portfolio derived from event files: balance, exposure, per-event cap (5), deployed cap (30%).
+- Position model and portfolio derived from event files: balance, exposure, per-event cap (5); no deployed cap as of config v4.
 - Dedup by `arm + strategy + market_id`, with a cooldown for rejected and refused markets that ends only on a price move of at least 3¢.
 - Fill simulation unit tests, including thin books, partial fills and fee maths.
 
@@ -72,7 +72,7 @@ Build order for the design in [../README.md](../README.md) and [ARCHITECTURE.md]
 ## Phase 8: AWS deployment
 
 - Container image and Lambda functions for `scanner`, `tracker`, `overdue`, `report`, `heartbeat`.
-- EventBridge schedules (15 min scan, hourly tracker, daily overdue and report), reserved concurrency of 1 on scanner and tracker.
+- EventBridge schedules (hourly scan, hourly tracker, daily overdue and report), reserved concurrency of 1 on scanner and tracker.
 - S3 bucket and layout, IAM least privilege, secrets (LLM key, Telegram token) in Secrets Manager or SSM.
 - CloudWatch alarms. Infrastructure as code (Terraform or CDK; to be chosen).
 - Dry run for 24 hours before the test officially starts; check data completeness, then freeze config and prompt versions.

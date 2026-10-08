@@ -133,7 +133,7 @@ def test_heartbeat_alerts_when_scans_went_quiet_and_stays_silent_when_they_ran(t
     assert len(h.sent) == 1 and h.sent[0].startswith("ALERT:")
 
     run_scanner(h.runtime, NOW)
-    run_heartbeat(h.runtime, NOW.replace(minute=30))  # 15 minutes after the scan
+    run_heartbeat(h.runtime, NOW.replace(minute=30))  # 30 minutes after the scan
     assert len(h.sent) == 1
 
 
