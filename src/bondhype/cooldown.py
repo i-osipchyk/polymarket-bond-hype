@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from bondhype.config import Config
 from bondhype.storage import Storage
@@ -24,13 +24,11 @@ def cooldown_active(
     strategy: str,
     market_id: str,
     price: float,
-    now: datetime,
 ) -> bool:
+    """A rejected market stays out until its price is at least `cooldown_price_move` away from
+    the price at the last rejection, either way. Time alone never ends a cooldown."""
     keys = storage.list(_prefix(arm, strategy, market_id))
     if not keys:
         return False
     last = json.loads(storage.get(keys[-1]))
-    rejected_at = datetime.fromisoformat(last["rejected_at"])
-    if now - rejected_at >= timedelta(hours=config.portfolio.cooldown_hours):
-        return False
-    return round(abs(price - last["price"]), 6) <= config.portfolio.cooldown_price_move
+    return round(abs(price - last["price"]), 6) < config.portfolio.cooldown_price_move

@@ -64,7 +64,7 @@ Each arm is an independent paper portfolio ($1,000 balance, own caps, own P&L), 
 
 - Fixed **$10 per trade**, **$1,000** paper balance per arm.
 - Caps: at most 5 open positions per event, at most 30% of the bankroll deployed at once.
-- One entry per market per arm, at the first scan where it passes the rules and the arm's verdict is buy. Rejected markets are re-evaluated only after a cooldown (24 hours or a price move of more than 3¢).
+- One entry per market per arm, at the first scan where it passes the rules and the arm's verdict is buy. Rejected markets are re-evaluated only when the ask has moved at least 3¢ from the price at the last rejection, either way; time alone never ends the cooldown. An entry that the portfolio refuses (deployed or event cap, no liquidity, missing fee schedule) is cached the same way, and the refusal reason is logged.
 - Idempotency key: arm + strategy + market id.
 - Hold to resolution. No stops, no take-profits in v1. The full price path and periodic book snapshots of open positions are logged so stops and exits can be evaluated offline.
 

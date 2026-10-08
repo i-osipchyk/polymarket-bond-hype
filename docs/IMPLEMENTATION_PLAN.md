@@ -24,7 +24,7 @@ Build order for the design in [../README.md](../README.md) and [ARCHITECTURE.md]
 
 - Book-walk fill simulation: average price, slippage, shares, fee from the category rate (read at entry), gross edge.
 - Position model and portfolio derived from event files: balance, exposure, per-event cap (5), deployed cap (30%).
-- Dedup by `arm + strategy + market_id`, with cooldown rules (24h or price move over 3¢) for rejected markets.
+- Dedup by `arm + strategy + market_id`, with a cooldown for rejected and refused markets that ends only on a price move of at least 3¢.
 - Fill simulation unit tests, including thin books, partial fills and fee maths.
 
 **Done when:** given a candidate and a stored book, the system opens a paper position with all cost fields logged, and caps and dedup hold.

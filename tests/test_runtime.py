@@ -32,7 +32,7 @@ def test_runtime_is_wired_from_env_with_secrets_read_from_the_parameter_store(tm
     runtime = build_runtime(ENV, read_secret=SECRETS.__getitem__, make_storage=make_storage)
 
     assert buckets == ["forward-test-bucket"]
-    assert runtime.config.version == "v1"
+    assert runtime.config.version == "v2"
     assert (runtime.llm.reject.id, runtime.llm.buy.id) == ("reject_v1", "buy_v1")
     assert callable(runtime.send)
 

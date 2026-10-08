@@ -81,8 +81,7 @@ def _pending_arms(
         for arm in ARMS
         if not storage.exists(position_key(arm, strategy, market.id))
         and (
-            arm == "baseline"
-            or not cooldown_active(storage, config, arm, strategy, market.id, ask, now)
+            arm == "baseline" or not cooldown_active(storage, config, arm, strategy, market.id, ask)
         )
     ]
 
@@ -131,7 +130,7 @@ def _enter_arms(
                 record_rejection(storage, arm, strategy, market.id, ask, now)
     for arm in candidate.pending:
         if arm in trading:
-            open_position(
+            entry = open_position(
                 storage,
                 config,
                 arm=arm,
@@ -141,7 +140,14 @@ def _enter_arms(
                 book=candidate.book,
                 now=now,
             )
-            logger.info("opened %s/%s %s on %s", arm, strategy, attempt.side, market.id)
+            if entry.rejection is None:
+                logger.info("opened %s/%s %s on %s", arm, strategy, attempt.side, market.id)
+                continue
+            logger.warning(
+                "entry refused %s/%s on %s: %s", arm, strategy, market.id, entry.rejection
+            )
+            if arm != "baseline":  # a refused entry is cached like a rejection
+                record_rejection(storage, arm, strategy, market.id, ask, now)
 
 
 def _skipped_line(market_id: str, config: Config, **fields) -> str:

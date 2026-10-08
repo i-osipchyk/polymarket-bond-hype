@@ -23,7 +23,7 @@ def test_valid_config_exposes_filter_thresholds():
     assert config.portfolio.starting_balance_usd == 1000
     assert config.portfolio.max_positions_per_event == 5
     assert config.portfolio.max_deployed_fraction == 0.30
-    assert (config.portfolio.cooldown_hours, config.portfolio.cooldown_price_move) == (24, 0.03)
+    assert config.portfolio.cooldown_price_move == 0.03
     assert (config.hype.yes_price_min, config.hype.yes_price_max) == (0.05, 0.25)
     assert config.hype.max_spread == 0.03
     assert config.hype.days_to_resolution_max == 14

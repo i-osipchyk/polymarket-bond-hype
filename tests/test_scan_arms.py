@@ -60,9 +60,16 @@ def bond_market_and_books():
     return market, books
 
 
-def run_scan(storage, llm, now=NOW):
+def run_scan(storage, llm, now=NOW, ask=None, config=CONFIG):
+    """`ask` re-prices the NO side (0.93 in the fixture) with a single deep level."""
     market, books = bond_market_and_books()
-    scan([market], lambda token: books[token], storage, CONFIG, now, llm=llm)
+    if ask is not None:
+        no_token = json.loads(market["clobTokenIds"])[1]
+        books[no_token] = {
+            "bids": [{"price": f"{ask - 0.01:.2f}", "size": "5000"}],
+            "asks": [{"price": f"{ask:.2f}", "size": "5000"}],
+        }
+    scan([market], lambda token: books[token], storage, config, now, llm=llm)
     return market
 
 
@@ -136,14 +143,77 @@ def test_rejected_arms_are_in_cooldown_so_the_next_scan_does_not_call_the_llm_ag
     assert len(client.calls) == calls_after_first_scan
 
 
-def test_after_the_cooldown_a_rejected_market_is_reviewed_again_and_can_enter(tmp_path):
+def test_a_rejected_market_is_not_reviewed_again_however_much_time_passes(tmp_path):
+    storage = LocalStorage(tmp_path)
+    llm, client = setup("reject", "reject")
+    run_scan(storage, llm)
+    calls = len(client.calls)
+
+    run_scan(storage, llm, now=NOW + timedelta(days=3))
+
+    assert len(client.calls) == calls
+
+
+def test_a_rejected_market_is_reviewed_again_once_its_ask_has_moved_3_cents_and_can_enter(tmp_path):
     storage = LocalStorage(tmp_path)
     run_scan(storage, setup("reject", "reject")[0])
 
-    later = NOW + timedelta(hours=25)
-    run_scan(storage, setup("buy", "buy")[0], now=later)
+    run_scan(storage, setup("buy", "buy")[0], now=NOW + timedelta(minutes=15), ask=0.90)
 
     assert set(positions(storage)) == set(ARMS)
+
+
+@pytest.mark.parametrize("ask", [0.91, 0.95])
+def test_a_move_of_under_3_cents_either_way_keeps_the_market_cached(tmp_path, ask):
+    storage = LocalStorage(tmp_path)
+    llm, client = setup("reject", "reject")
+    run_scan(storage, llm)
+    calls = len(client.calls)
+
+    run_scan(storage, llm, now=NOW + timedelta(minutes=15), ask=ask)
+
+    assert len(client.calls) == calls
+
+
+NO_ROOM = CONFIG.model_copy(
+    update={
+        "portfolio": CONFIG.portfolio.model_copy(
+            update={"max_deployed_fraction": CONFIG.order_size_usd / 10_000}
+        )
+    }
+)
+
+
+def test_an_arm_whose_entry_is_refused_is_cached_like_a_rejection(tmp_path):
+    storage = LocalStorage(tmp_path)
+    llm, client = setup("buy", "buy")
+    run_scan(storage, llm, config=NO_ROOM)
+    assert positions(storage) == {}  # every entry hit the deployed cap
+    calls = len(client.calls)
+
+    run_scan(storage, llm, now=NOW + timedelta(minutes=15), config=NO_ROOM)
+
+    assert len(client.calls) == calls
+
+
+def test_a_refused_entry_is_reviewed_again_when_the_price_moves_3_cents(tmp_path):
+    storage = LocalStorage(tmp_path)
+    llm, client = setup("buy", "buy")
+    run_scan(storage, llm, config=NO_ROOM)
+    calls = len(client.calls)
+
+    run_scan(storage, llm, now=NOW + timedelta(minutes=15), ask=0.90, config=NO_ROOM)
+
+    assert len(client.calls) == calls + 2
+
+
+def test_a_refused_entry_is_logged_with_the_arm_and_the_reason(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+
+    run_scan(LocalStorage(tmp_path), setup("buy", "buy")[0], config=NO_ROOM)
+
+    assert "entry refused prompt_buy/bond" in caplog.text
+    assert "deployed_cap" in caplog.text
 
 
 def test_an_arm_that_already_holds_the_market_is_not_charged_again(tmp_path):
