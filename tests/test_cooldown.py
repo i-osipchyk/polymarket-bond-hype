@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from bondhype.config import load_config
-from bondhype.cooldown import cooldown_active, record_rejection
+from bondhype.cooldown import Cooldowns, record_rejection
 from bondhype.storage import LocalStorage
 from builders import NOW
 
@@ -12,7 +12,7 @@ CONFIG = load_config(Path(__file__).parent / "fixtures" / "config_valid.yaml")
 
 
 def active(storage, price, arm="prompt_buy", strategy="bond", market_id="m1"):
-    return cooldown_active(storage, CONFIG, arm, strategy, market_id, price)
+    return Cooldowns(storage).active(CONFIG, arm, strategy, market_id, price)
 
 
 def test_market_is_cooling_down_right_after_a_rejection_but_not_before(tmp_path):

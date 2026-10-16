@@ -9,13 +9,13 @@ from datetime import datetime
 from bondhype.arms import ARMS, route
 from bondhype.books import BookFetchError, ParseError, parse_book
 from bondhype.config import Config
-from bondhype.cooldown import cooldown_active, record_rejection
+from bondhype.cooldown import Cooldowns, record_rejection
 from bondhype.entry import open_position
 from bondhype.filters import Attempt, evaluate_market
+from bondhype.ledger import Ledger, load_ledger, save_checkpoint
 from bondhype.llm import LLMSetup, Prompt, Verdict, review
 from bondhype.markets import parse_market
 from bondhype.models import Book, Market
-from bondhype.portfolio import position_key
 from bondhype.storage import Storage
 
 logger = logging.getLogger(__name__)
@@ -73,16 +73,19 @@ class _Candidate:
 
 
 def _pending_arms(
-    market: Market, attempt: Attempt, storage: Storage, config: Config, now: datetime
+    market: Market,
+    attempt: Attempt,
+    ledger: Ledger,
+    cooldowns: Cooldowns,
+    config: Config,
+    now: datetime,
 ) -> list[str]:
     strategy, ask = attempt.strategy, attempt.result.values["ask"]
     return [
         arm
         for arm in ARMS
-        if not storage.exists(position_key(arm, strategy, market.id))
-        and (
-            arm == "baseline" or not cooldown_active(storage, config, arm, strategy, market.id, ask)
-        )
+        if not ledger.holds(arm, strategy, market.id)
+        and (arm == "baseline" or not cooldowns.active(config, arm, strategy, market.id, ask))
     ]
 
 
@@ -133,6 +136,7 @@ def _review_all(
 def _enter_arms(
     candidate: _Candidate,
     verdicts: tuple[Verdict, Verdict] | None,
+    ledger: Ledger,
     storage: Storage,
     config: Config,
     now: datetime,
@@ -150,6 +154,7 @@ def _enter_arms(
             entry = open_position(
                 storage,
                 config,
+                ledger,
                 arm=arm,
                 strategy=strategy,
                 market=market,
@@ -184,6 +189,8 @@ def scan(
     llm: LLMSetup | None = None,
 ) -> None:
     """Evaluate every market, review candidates concurrently, then open positions in order."""
+    ledger = load_ledger(storage, now)
+    cooldowns = Cooldowns(storage)
     lines: list[str] = []
     candidates: list[_Candidate] = []
     seen = prescreened = 0
@@ -222,7 +229,7 @@ def scan(
                     market=market,
                     attempt=selected,
                     book=books[selected.side],
-                    pending=_pending_arms(market, selected, storage, config, now),
+                    pending=_pending_arms(market, selected, ledger, cooldowns, config, now),
                     snapshot=_snapshot(market, selected, now),
                 )
             )
@@ -248,7 +255,8 @@ def scan(
 
     verdicts = _review_all(candidates, storage, config, now, llm) if llm is not None else {}
     for candidate in candidates:
-        _enter_arms(candidate, verdicts.get(candidate.market.id), storage, config, now)
+        _enter_arms(candidate, verdicts.get(candidate.market.id), ledger, storage, config, now)
+    save_checkpoint(storage, ledger, now)
 
     key = f"candidates/date={now:%Y-%m-%d}/scan={now:%Y-%m-%dT%H:%M:%SZ}.jsonl"
     storage.put(key, ("\n".join(lines) + "\n").encode())

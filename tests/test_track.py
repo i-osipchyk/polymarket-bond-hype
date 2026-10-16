@@ -6,7 +6,8 @@ import pytest
 
 from bondhype.books import BookFetchError
 from bondhype.config import load_config
-from bondhype.portfolio import load_portfolio, position_key
+from bondhype.ledger import load_ledger
+from bondhype.portfolio import position_key
 from bondhype.settlement import Resolution
 from bondhype.storage import LocalStorage
 from bondhype.track import track
@@ -43,6 +44,11 @@ def test_resolved_position_is_settled_once_and_stored(tmp_path):
     assert stored.pnl_usd == pytest.approx(10.0 - 9.30 - 0.05)
 
 
+def price_points(storage):
+    (key,) = storage.list("pricepath/")
+    return key, [json.loads(line) for line in storage.get(key).decode().splitlines()]
+
+
 def test_open_position_gets_a_price_point_and_book_snapshot_of_the_held_side(tmp_path):
     storage = LocalStorage(tmp_path)
     raw = load("settle_overdue_open")  # NO price 0.9995
@@ -58,14 +64,52 @@ def test_open_position_gets_a_price_point_and_book_snapshot_of_the_held_side(tmp
     track(storage, markets(raw), fetch_book, NOW)
 
     assert fetched == [no_token]
-    (key,) = storage.list("arms/baseline/bond/pricepath/")
-    assert key == f"arms/baseline/bond/pricepath/{raw['id']}/2026-11-10T12.json"
-    point = json.loads(storage.get(key))
+    key, (point,) = price_points(storage)
+    assert key == "pricepath/date=2026-11-10/run=2026-11-10T12.jsonl"
+    assert point["market_id"] == raw["id"]
+    assert point["holders"] == [{"arm": "baseline", "strategy": "bond", "side": "NO"}]
     assert point["observed_at"] == NOW.isoformat()
     assert point["yes_price"] == pytest.approx(0.0005)
     assert point["no_price"] == pytest.approx(0.9995)
-    assert point["book"] == book
+    assert point["books"] == {"NO": book}
     assert storage.list("arms/baseline/bond/resolutions/") == []
+
+
+def test_a_market_held_by_several_arms_is_fetched_and_recorded_once(tmp_path):
+    storage = LocalStorage(tmp_path)
+    raw = load("settle_overdue_open")
+    for arm in ("baseline", "prompt_buy", "mix_or"):
+        store(storage, position(raw["id"], arm=arm, strategy="bond", side="NO"))
+    fetched_markets, fetched_books = [], []
+
+    def fetch_market(market_id):
+        fetched_markets.append(market_id)
+        return raw
+
+    def fetch_book(token_id):
+        fetched_books.append(token_id)
+        return {"bids": [], "asks": []}
+
+    summary = track(storage, fetch_market, fetch_book, NOW)
+
+    assert fetched_markets == [raw["id"]]
+    assert len(fetched_books) == 1
+    _, (point,) = price_points(storage)
+    assert [h["arm"] for h in point["holders"]] == ["baseline", "prompt_buy", "mix_or"]
+    assert summary.snapshotted == 3
+
+
+def test_a_retried_run_in_the_same_hour_keeps_the_first_price_file(tmp_path):
+    storage = LocalStorage(tmp_path)
+    raw = load("settle_overdue_open")
+    store(storage, position(raw["id"]))
+    track(storage, markets(raw), lambda token: {"bids": [], "asks": []}, NOW)
+    _, first = price_points(storage)
+
+    summary = track(storage, markets(raw), lambda token: None, NOW.replace(minute=20))
+
+    assert price_points(storage)[1] == first
+    assert summary.snapshotted == 0
 
 
 def test_settled_position_is_not_fetched_again(tmp_path):
@@ -110,9 +154,8 @@ def test_a_failed_book_fetch_still_records_the_price_point(tmp_path):
 
     track(storage, markets(raw), fetch_book, NOW)
 
-    (key,) = storage.list("arms/baseline/bond/pricepath/")
-    point = json.loads(storage.get(key))
-    assert point["book"] is None
+    _, (point,) = price_points(storage)
+    assert point["books"] == {"NO": None}
     assert point["no_price"] == pytest.approx(0.9995)
 
 
@@ -122,9 +165,9 @@ def test_settling_frees_exposure_in_the_portfolio_that_entry_reads(tmp_path):
     store(storage, position(raw["id"]))
     config = load_config(Path(__file__).parent / "fixtures" / "config_valid.yaml")
 
-    before = load_portfolio(storage, config, "baseline", "bond")
+    before = load_ledger(storage, NOW).portfolio(config, "baseline", "bond")
     track(storage, markets(raw), no_book, NOW)
-    after = load_portfolio(storage, config, "baseline", "bond")
+    after = load_ledger(storage, NOW).portfolio(config, "baseline", "bond")
 
     assert before.exposure_usd == pytest.approx(9.30)
     assert after.exposure_usd == 0.0

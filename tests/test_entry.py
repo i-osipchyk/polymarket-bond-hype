@@ -5,8 +5,8 @@ import pytest
 
 from bondhype.config import load_config
 from bondhype.entry import open_position
+from bondhype.ledger import load_ledger
 from bondhype.models import Book, FeeSchedule
-from bondhype.portfolio import load_portfolio
 from bondhype.storage import LocalStorage
 from builders import NOW, make_book, make_market
 
@@ -18,6 +18,7 @@ def enter(storage, market=None, book=DEEP_BOOK, arm="baseline", strategy="bond",
     return open_position(
         storage,
         CONFIG,
+        load_ledger(storage, now),
         arm=arm,
         strategy=strategy,
         market=market or make_market(),
@@ -44,7 +45,7 @@ def test_open_position_logs_every_cost_field_and_updates_the_portfolio(tmp_path)
     assert stored["market_id"] == "m1"
     assert stored["fee_usd"] == pytest.approx(0.035, abs=1e-5)
 
-    portfolio = load_portfolio(storage, CONFIG, arm="baseline", strategy="bond")
+    portfolio = load_ledger(storage, NOW).portfolio(CONFIG, "baseline", "bond")
     assert portfolio.exposure_usd == pytest.approx(10.0)
     assert portfolio.balance_usd == pytest.approx(1000 - 10.035, abs=1e-5)
 

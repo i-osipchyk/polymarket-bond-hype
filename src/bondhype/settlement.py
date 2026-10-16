@@ -1,11 +1,8 @@
 import json
-from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from datetime import datetime
 
-from bondhype.arms import ARMS
-from bondhype.portfolio import PositionOpened, positions_prefix
-from bondhype.storage import Storage
+from bondhype.portfolio import PositionOpened
 
 STRATEGIES = ("bond", "hype")
 
@@ -46,16 +43,6 @@ class Resolution:
 
 def resolution_key(arm: str, strategy: str, market_id: str) -> str:
     return f"arms/{arm}/{strategy}/resolutions/{market_id}.json"
-
-
-def unsettled_positions(storage: Storage) -> Iterator[PositionOpened]:
-    """Every stored position that has no resolution file yet."""
-    for arm in ARMS:
-        for strategy in STRATEGIES:
-            for key in storage.list(positions_prefix(arm, strategy)):
-                position = PositionOpened.from_json(storage.get(key))
-                if not storage.exists(resolution_key(arm, strategy, position.market_id)):
-                    yield position
 
 
 def _final_prices(raw_market: dict) -> tuple[float, float] | None:

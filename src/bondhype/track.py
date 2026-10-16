@@ -4,32 +4,39 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from bondhype.books import BookFetchError
+from bondhype.ledger import load_ledger
 from bondhype.portfolio import PositionOpened
-from bondhype.settlement import resolution_key, resolve, unsettled_positions
+from bondhype.settlement import resolution_key, resolve
 from bondhype.storage import ImmutableKey, Storage
 
 
-def pricepath_key(arm: str, strategy: str, market_id: str, now: datetime) -> str:
-    return f"arms/{arm}/{strategy}/pricepath/{market_id}/{now.strftime('%Y-%m-%dT%H')}.json"
+def pricepath_key(now: datetime) -> str:
+    """One file per tracker run, at most one run's file per hour."""
+    return f"pricepath/date={now:%Y-%m-%d}/run={now:%Y-%m-%dT%H}.jsonl"
 
 
-def _snapshot(
-    position: PositionOpened,
+def _price_point(
+    market_id: str,
+    holders: list[PositionOpened],
     raw_market: dict,
     fetch_book: Callable[[str], dict],
     now: datetime,
 ) -> dict:
     yes_price, no_price = (float(p) for p in json.loads(raw_market["outcomePrices"]))
-    yes_token, no_token = json.loads(raw_market["clobTokenIds"])
-    try:
-        book = fetch_book(no_token if position.side == "NO" else yes_token)
-    except BookFetchError:
-        book = None
+    tokens = dict(zip(("YES", "NO"), json.loads(raw_market["clobTokenIds"]), strict=True))
+    books = {}
+    for side in sorted({p.side for p in holders}):
+        try:
+            books[side] = fetch_book(tokens[side])
+        except BookFetchError:
+            books[side] = None
     return {
+        "market_id": market_id,
+        "holders": [{"arm": p.arm, "strategy": p.strategy, "side": p.side} for p in holders],
         "observed_at": now.isoformat(),
         "yes_price": yes_price,
         "no_price": no_price,
-        "book": book,
+        "books": books,
     }
 
 
@@ -40,30 +47,29 @@ class TrackSummary:
     errors: list[tuple[str, str]] = field(default_factory=list)
 
 
-def _track_position(
+def _track_market(
     storage: Storage,
-    position: PositionOpened,
+    market_id: str,
+    positions: list[PositionOpened],
     fetch_market: Callable[[str], dict],
     fetch_book: Callable[[str], dict],
     now: datetime,
     summary: TrackSummary,
-) -> None:
-    arm, strategy = position.arm, position.strategy
-    raw_market = fetch_market(position.market_id)
-    resolution = resolve(position, raw_market)
-    if resolution is not None:
-        storage.put(resolution_key(arm, strategy, position.market_id), resolution.to_json())
+) -> dict | None:
+    """Settle what has resolved; return a price point for the rest, if any are still open."""
+    raw_market = fetch_market(market_id)
+    still_open = []
+    for position in positions:
+        resolution = resolve(position, raw_market)
+        if resolution is None:
+            still_open.append(position)
+            continue
+        key = resolution_key(position.arm, position.strategy, market_id)
+        storage.put(key, resolution.to_json())
         summary.settled += 1
-        return
-    snapshot = _snapshot(position, raw_market, fetch_book, now)
-    try:
-        storage.put(
-            pricepath_key(arm, strategy, position.market_id, now),
-            json.dumps(snapshot, sort_keys=True).encode(),
-        )
-    except ImmutableKey:
-        return  # an earlier run this hour already recorded the point
-    summary.snapshotted += 1
+    if not still_open:
+        return None
+    return _price_point(market_id, still_open, raw_market, fetch_book, now)
 
 
 def track(
@@ -72,10 +78,27 @@ def track(
     fetch_book: Callable[[str], dict],
     now: datetime,
 ) -> TrackSummary:
+    """Each market is fetched once however many arms hold it; price points go to one file."""
     summary = TrackSummary()
-    for position in unsettled_positions(storage):
+    by_market: dict[str, list[PositionOpened]] = {}
+    for position in load_ledger(storage, now).unsettled():
+        by_market.setdefault(position.market_id, []).append(position)
+    points = []
+    for market_id, positions in by_market.items():
         try:
-            _track_position(storage, position, fetch_market, fetch_book, now, summary)
+            point = _track_market(
+                storage, market_id, positions, fetch_market, fetch_book, now, summary
+            )
         except (OSError, ValueError, KeyError) as exc:
-            summary.errors.append((position.market_id, repr(exc)))
+            summary.errors.append((market_id, repr(exc)))
+            continue
+        if point is not None:
+            points.append(point)
+    if points:
+        data = "".join(json.dumps(p, sort_keys=True) + "\n" for p in points).encode()
+        try:
+            storage.put(pricepath_key(now), data)
+        except ImmutableKey:
+            return summary  # an earlier run this hour already recorded the points
+        summary.snapshotted = sum(len(p["holders"]) for p in points)
     return summary

@@ -2,12 +2,12 @@
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from bondhype.arms import ARMS
 from bondhype.config import Config
-from bondhype.portfolio import PositionOpened, positions_prefix, resolutions_prefix
-from bondhype.settlement import STRATEGIES, OverdueReport, Resolution
+from bondhype.ledger import load_ledger
+from bondhype.settlement import STRATEGIES, OverdueReport
 from bondhype.stats import ArmStats, ArmVerdict, arm_stats, verdict
 from bondhype.storage import Storage
 
@@ -85,18 +85,13 @@ def _latest_overdue(
 def build_report(storage: Storage, config: Config, now: datetime) -> DailyReport:
     candidates = _candidates_today(storage, now)
     llm_outcomes = _llm_outcomes_today(storage, now)
+    ledger = load_ledger(storage, now)
     entries = []
     for strategy in STRATEGIES:
         positions, resolutions, overdue, stats = {}, {}, {}, {}
         for arm in ARMS:
-            positions[arm] = [
-                PositionOpened.from_json(storage.get(key))
-                for key in storage.list(positions_prefix(arm, strategy))
-            ]
-            resolutions[arm] = [
-                Resolution.from_json(storage.get(key))
-                for key in storage.list(resolutions_prefix(arm, strategy))
-            ]
+            positions[arm] = ledger.positions(arm, strategy)
+            resolutions[arm] = ledger.resolutions(arm, strategy)
             overdue[arm] = _latest_overdue(
                 storage, arm, strategy, {r.market_id for r in resolutions[arm]}
             )
@@ -176,10 +171,14 @@ def _scan_time(key: str) -> datetime:
 
 
 def check_heartbeat(storage: Storage, config: Config, now: datetime) -> Heartbeat:
-    """Dead man's switch: every scan writes a candidates file, so silence means a missing scan."""
-    keys = storage.list("candidates/")
+    """Dead man's switch: every scan writes a candidates file, so silence means a missing scan.
+
+    Only today's and yesterday's files are listed, which always covers the age limit.
+    """
+    days = (now, now - timedelta(days=1))
+    keys = [key for day in days for key in storage.list(f"candidates/date={day:%Y-%m-%d}/")]
     if not keys:
-        return Heartbeat(False, "No scan output found at all.")
+        return Heartbeat(False, f"No scan output since {days[1]:%Y-%m-%d} 00:00 UTC.")
     age_minutes = (now - max(_scan_time(k) for k in keys)).total_seconds() / 60
     if age_minutes > config.health.heartbeat_max_age_minutes:
         return Heartbeat(False, f"No scan output for {age_minutes:.0f} min.")

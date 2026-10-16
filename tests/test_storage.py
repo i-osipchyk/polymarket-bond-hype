@@ -1,11 +1,29 @@
+import boto3
 import pytest
+from moto import mock_aws
 
-from bondhype.storage import ImmutableKey, KeyNotFound, LocalStorage
+from bondhype.storage import ImmutableKey, KeyNotFound, LocalStorage, S3Storage
+
+BUCKET = "bondhype-test"
 
 
-@pytest.fixture(params=["local"])
+@pytest.fixture
+def s3_client(monkeypatch):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    with mock_aws():
+        client = boto3.client("s3", region_name="eu-west-1")
+        client.create_bucket(
+            Bucket=BUCKET, CreateBucketConfiguration={"LocationConstraint": "eu-west-1"}
+        )
+        yield client
+
+
+@pytest.fixture(params=["local", "s3"])
 def storage(request, tmp_path):
-    return LocalStorage(tmp_path)
+    if request.param == "local":
+        return LocalStorage(tmp_path)
+    return S3Storage(BUCKET, client=request.getfixturevalue("s3_client"))
 
 
 def test_put_then_get_round_trips_bytes(storage):
@@ -50,4 +68,35 @@ def test_overwriting_a_key_with_different_bytes_is_refused(storage):
     storage.put(key, b'{"shares": 10}')
     with pytest.raises(ImmutableKey):
         storage.put(key, b'{"shares": 11}')
+    assert storage.get(key) == b'{"shares": 10}'
+
+
+def test_list_pages_past_a_thousand_keys(storage):
+    for i in range(1001):
+        storage.put(f"state/k/{i:04d}.json", b"{}")
+    keys = storage.list("state/k/")
+    assert len(keys) == 1001
+    assert keys[0] == "state/k/0000.json" and keys[-1] == "state/k/1000.json"
+
+
+def requests_made(client) -> list[str]:
+    calls: list[str] = []
+    client.meta.events.register("before-call.s3", lambda model, **_: calls.append(model.name))
+    return calls
+
+
+def test_s3_writes_a_new_key_in_one_request(s3_client):
+    storage = S3Storage(BUCKET, client=s3_client)
+    calls = requests_made(s3_client)
+    storage.put("arms/baseline/bond/positions/m1.json", b'{"shares": 10}')
+    assert calls == ["PutObject"]
+
+
+def test_s3_conditional_write_still_refuses_different_bytes(s3_client):
+    storage = S3Storage(BUCKET, client=s3_client)
+    key = "arms/baseline/bond/positions/m1.json"
+    storage.put(key, b'{"shares": 10}')
+    with pytest.raises(ImmutableKey):
+        storage.put(key, b'{"shares": 11}')
+    storage.put(key, b'{"shares": 10}')
     assert storage.get(key) == b'{"shares": 10}'

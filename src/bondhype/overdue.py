@@ -1,7 +1,8 @@
 from collections.abc import Callable
 from datetime import datetime
 
-from bondhype.settlement import assess_overdue, unsettled_positions
+from bondhype.ledger import load_ledger
+from bondhype.settlement import assess_overdue
 from bondhype.storage import ImmutableKey, Storage
 
 
@@ -14,7 +15,7 @@ def run_overdue(
 ) -> list[tuple[str, str]]:
     """Write today's analysis for each overdue position. Returns (market_id, error) pairs."""
     errors: list[tuple[str, str]] = []
-    for position in unsettled_positions(storage):
+    for position in load_ledger(storage, now).unsettled():
         try:
             report = assess_overdue(position, fetch_market(position.market_id), now)
             if report is None:

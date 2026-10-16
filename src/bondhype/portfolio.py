@@ -4,9 +4,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from bondhype.config import Config
-from bondhype.storage import Storage
-
 if TYPE_CHECKING:
     from bondhype.settlement import Resolution
 
@@ -79,17 +76,3 @@ class Portfolio:
 
 def resolutions_prefix(arm: str, strategy: str) -> str:
     return f"arms/{arm}/{strategy}/resolutions/"
-
-
-def load_portfolio(storage: Storage, config: Config, arm: str, strategy: str) -> Portfolio:
-    from bondhype.settlement import Resolution  # settlement imports this module
-
-    events = [
-        PositionOpened.from_json(storage.get(key))
-        for key in storage.list(positions_prefix(arm, strategy))
-    ]
-    resolutions = [
-        Resolution.from_json(storage.get(key))
-        for key in storage.list(resolutions_prefix(arm, strategy))
-    ]
-    return Portfolio.from_events(events, config.portfolio.starting_balance_usd, resolutions)

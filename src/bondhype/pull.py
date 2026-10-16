@@ -20,9 +20,12 @@ class PullSummary:
 
 
 def default_prefixes(include_heavy: bool = False) -> list[str]:
-    """Everything for analysis; raw books and price paths are large, so they are opt-in."""
-    prefixes = ["markets/", "candidates/", "llm_calls/", "reports/", "state/"]
-    heavy = ["books/"]
+    """Everything for analysis; raw books and price paths are large, so they are opt-in.
+
+    Ledger checkpoints under state/ledger/ are derived from the per-record files and skipped.
+    """
+    prefixes = ["markets/", "candidates/", "llm_calls/", "reports/", "state/cooldowns/"]
+    heavy = ["books/", "pricepath/"]
     for arm in ARMS:
         for strategy in STRATEGIES:
             base = f"arms/{arm}/{strategy}/"

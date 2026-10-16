@@ -66,11 +66,17 @@ ALL_KINDS = {
     "arms/mix_or/hype/resolutions/m1.json": b"1",
     "arms/mix_or/hype/overdue/m1/2026-10-07.json": b"1",
     "reports/date=2026-10-07/report.txt": b"1",
-    "state/date=2026-10-07/cooldown.json": b"1",
+    "state/cooldowns/mix_or/hype/m1/2026-10-07T09:00:00Z.json": b"1",
     "books/date=2026-10-07/m1.json": b"1",
     "arms/mix_or/hype/pricepath/m1/2026-10-07T09.json": b"1",
+    "pricepath/date=2026-10-07/run=2026-10-07T09.jsonl": b"1",
 }
-HEAVY = {"books/date=2026-10-07/m1.json", "arms/mix_or/hype/pricepath/m1/2026-10-07T09.json"}
+HEAVY = {
+    "books/date=2026-10-07/m1.json",
+    "arms/mix_or/hype/pricepath/m1/2026-10-07T09.json",
+    "pricepath/date=2026-10-07/run=2026-10-07T09.jsonl",
+}
+CHECKPOINT = "state/ledger/date=2026-10-07/scan=2026-10-07T09:00:00Z.json.gz"
 
 
 def test_default_pull_takes_everything_except_raw_books_and_price_paths(tmp_path):
@@ -89,3 +95,12 @@ def test_heavy_data_is_pulled_when_asked_for(tmp_path):
     pull(remote, local, default_prefixes(include_heavy=True))
 
     assert set(local.list("")) == set(ALL_KINDS)
+
+
+def test_ledger_checkpoints_are_derived_and_never_pulled(tmp_path):
+    remote = _remote(tmp_path, ALL_KINDS | {CHECKPOINT: b"1"})
+    local = LocalStorage(tmp_path / "local")
+
+    pull(remote, local, default_prefixes(include_heavy=True))
+
+    assert CHECKPOINT not in local.list("")

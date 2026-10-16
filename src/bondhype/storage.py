@@ -51,18 +51,24 @@ class LocalStorage:
 
 
 class S3Storage:
-    """Same contract as LocalStorage, backed by an S3 bucket. Not covered by tests yet."""
+    """Same contract as LocalStorage, backed by an S3 bucket."""
 
     def __init__(self, bucket: str, client=None):
         self._bucket = bucket
         self._s3 = client or boto3.client("s3")
 
     def put(self, key: str, data: bytes) -> None:
-        if self.exists(key):
+        """One conditional request for a new key; only an existing key costs a read."""
+        try:
+            self._s3.put_object(Bucket=self._bucket, Key=key, Body=data, IfNoneMatch="*")
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] not in (
+                "PreconditionFailed",
+                "ConditionalRequestConflict",
+            ):
+                raise
             if self.get(key) != data:
-                raise ImmutableKey(key)
-            return
-        self._s3.put_object(Bucket=self._bucket, Key=key, Body=data)
+                raise ImmutableKey(key) from None
 
     def get(self, key: str) -> bytes:
         try:

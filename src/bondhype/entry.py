@@ -3,8 +3,9 @@ from datetime import datetime
 
 from bondhype.config import Config
 from bondhype.fills import UnsupportedFeeSchedule, simulate_fill
+from bondhype.ledger import Ledger
 from bondhype.models import Book, Market
-from bondhype.portfolio import PositionOpened, load_portfolio, position_key
+from bondhype.portfolio import PositionOpened, position_key
 from bondhype.storage import Storage
 
 
@@ -17,6 +18,7 @@ class EntryResult:
 def open_position(
     storage: Storage,
     config: Config,
+    ledger: Ledger,
     *,
     arm: str,
     strategy: str,
@@ -25,10 +27,11 @@ def open_position(
     book: Book,
     now: datetime,
 ) -> EntryResult:
+    """Checks run against the in-memory ledger, which the new position is added to."""
     key = position_key(arm, strategy, market.id)
-    if storage.exists(key):
+    if ledger.holds(arm, strategy, market.id):
         return EntryResult(position=None, rejection="duplicate_position")
-    portfolio = load_portfolio(storage, config, arm, strategy)
+    portfolio = ledger.portfolio(config, arm, strategy)
     open_in_event = portfolio.open_positions_by_event.get(market.event_id, 0)
     if open_in_event >= config.portfolio.max_positions_per_event:
         return EntryResult(position=None, rejection="event_cap")
@@ -58,4 +61,5 @@ def open_position(
         partial=fill.partial,
     )
     storage.put(key, position.to_json())
+    ledger.add_position(key, position)
     return EntryResult(position=position, rejection=None)

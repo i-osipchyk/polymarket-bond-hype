@@ -50,17 +50,41 @@ s3://<bucket>/
   llm_calls/date=.../                  prompt version, model id, full input, full output, per-attempt token usage and cost_usd, tool calls
   arms/<arm>/<strategy>/
     positions/                         paper fills (avg price, slippage, fee, gross edge)
-    pricepath/<market>/<date>T<hh>.json  hourly price and raw held-side book of an open position
+    pricepath/<market>/<date>T<hh>.json  legacy per-position price points, no longer written
     resolutions/                       outcome, payout, P&L, dispute info, days overdue at resolution
     overdue/<market>/<date>.json       daily status, price, dispute signals, conservative P&L
+  pricepath/date=.../run=<date>T<hh>.jsonl  one file per tracker run: per open market, its holders
+                                       (arm, strategy, side), prices and raw held-side books
   reports/date=.../                    daily per-arm summaries
-  state/                             small dedup and cooldown JSON files per day
+  state/cooldowns/<arm>/<strategy>/<market>/<ts>.json  LLM-arm rejections
+  state/ledger/date=.../scan=<ts>.json.gz  ledger checkpoint (derived, see below)
   config/                            config versions
 ```
 
 Arms: `baseline`, `prompt_reject`, `prompt_buy`, `mix_and`, `mix_or`. Strategies: `bond`, `hype`.
 
 Open-position state is derived from the event files. Dedup key: `arm + strategy + market_id`.
+
+### Request cost
+
+Every S3 request is billed, and request charges, not storage, are the S3 cost. Jobs therefore load
+what they need once per run instead of per market:
+
+- `ledger.load_ledger(storage, now)` builds every position and resolution in memory. The scanner
+  writes a gzipped checkpoint of it at the end of each run (`state/ledger/`). The next load reads
+  the newest checkpoint from today or yesterday, lists the position and resolution prefixes and
+  fetches only keys not in it. Records are immutable, so any checkpoint is a correct subset; the
+  per-record files stay the source of truth, and a lost checkpoint only means a full read.
+  Scanner, tracker, overdue and report all use it; entry checks dedup and caps against it.
+- `cooldown.Cooldowns` lists each LLM arm's cooldown prefix once per scan and reads only the
+  latest rejection of a market that comes up as a candidate.
+- The tracker fetches each market once however many arms hold it and writes one price-path file
+  per run.
+- `S3Storage.put` is one conditional `PutObject` (`If-None-Match: *`); only an existing key costs
+  a read to compare bytes.
+- The heartbeat lists only today's and yesterday's `candidates/` prefixes.
+
+`tests/test_request_budgets.py` pins these as call-count tests against a counting store.
 
 ## Modules (planned)
 
@@ -70,10 +94,11 @@ Open-position state is derived from the event files. Dedup key: `arm + strategy 
 - `llm`: `review(snapshot, prompt, client, ...)` with strict schema validation, retry once then `error` (a reject), one stored call record per market, prompt and scan (a retried scan reuses it). Prompts are versioned text files in `prompts/`, selected by id in the config `llm` section together with the pinned model id. `deepseek` is the thin provider adapter (`DEEPSEEK_API_KEY` from the environment); it returns the text with the API's token usage (cache hit, cache miss, output). `pricing` prices each attempt from `deepseek_pricing.yaml` (USD per 1M tokens, peak or off-peak by the UTC scan time, windows include their start and exclude their end; path in `BONDHYPE_PRICING`). Failed calls carry no usage and cost nothing; a rejected reply is still billed; a model missing from the price table leaves `cost_usd` null rather than failing the review. Records written before this change have no usage. No tools in v1.
 - `arms`: `route(reject, buy)` returns the arms that trade a rules-passing candidate; only an explicit buy counts, `error` is a reject. Caps and dedup stay per arm in `entry`; rejected arms, and arms whose entry the portfolio refuses, get a cooldown record so the LLM is not re-called every scan. The cooldown ends only when the ask is at least `portfolio.cooldown_price_move` from the price at the last record (either direction); there is no time expiry. Refusals are logged as `entry refused <arm>/<strategy> on <market>: <reason>`. Without an LLM client, only `baseline` trades.
 - `portfolio`: balance, exposure, P&L per arm and strategy, derived from events.
-- `settlement`: pure `resolve(position, raw_market)` and `assess_overdue(position, raw_market, now)`. A market settles only when Gamma says `closed`, `umaResolutionStatus == "resolved"`, outcome prices are exactly 1/0 and `closedTime` parses; anything else (disputed, 50/50, malformed) stays unsettled, so the conservative view keeps it as a total loss. `track` (hourly) writes resolutions and price-path points; `overdue` (daily) writes overdue records. One failing market never blocks the others.
+- `ledger`: all positions and resolutions loaded once per run, with checkpoints (see Request cost).
+- `settlement`: pure `resolve(position, raw_market)` and `assess_overdue(position, raw_market, now)`. A market settles only when Gamma says `closed`, `umaResolutionStatus == "resolved"`, outcome prices are exactly 1/0 and `closedTime` parses; anything else (disputed, 50/50, malformed) stays unsettled, so the conservative view keeps it as a total loss. `track` (hourly) writes resolutions and one price-path file per run; `overdue` (daily) writes overdue records. One failing market never blocks the others.
 - `stats`: gate computations (net EV, confidence intervals, break-even margin, drawdown, vs-baseline test). Single source of truth for the verdict. Pure functions over positions, resolutions and overdue reports. `arm_stats` gives resolved-only and conservative views (overdue = total loss, ordered last for drawdown; capital cost charged pro rata by days held); EV intervals and the arm-vs-baseline test use a seeded bootstrap (vs-baseline is one-sided at `gate.confidence`, independent resampling). `verdict` evaluates the gate on the conservative view and computes only the primary comparisons (each LLM arm vs baseline). Thresholds live in the config `gate:` section.
 - `reporting`: `build_report` reads stored positions, resolutions, overdue reports, candidates and llm_calls into per-arm/strategy figures (cumulative stats and gate verdict via `stats`; today's candidates = rule-passing selections, trades, resolutions; LLM error rate from the arm's prompts; latest overdue status per unresolved market). `format_report` renders the Telegram text with resolved-only and conservative views side by side and labels non-gate cuts exploratory. `check_heartbeat` alerts if the newest `candidates/` scan file is older than `health.heartbeat_max_age_minutes`. `telegram` is the thin Bot API adapter (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` from the environment); `local_report` sends the report, heartbeat check or a test alert from a local run. The CloudWatch Lambda-error alarm is deployed in phase 8.
-- `storage`: S3 read and write helpers, deterministic keys, Parquet schemas.
+- `storage`: S3 read and write helpers, deterministic keys, Parquet schemas. `LocalStorage` and `S3Storage` share one contract test (S3 via moto).
 
 ## Key design decisions
 
@@ -107,7 +132,7 @@ Deploy order: create the SSM parameters, `terraform apply -target=aws_ecr_reposi
 
 ## Pulling results for local analysis
 
-`python -m bondhype.pull --bucket <bucket>` mirrors S3 into `data/` with the same key layout, so `local_report`, `build_report` and `verdict` run on it unchanged. It is incremental and read-only on S3: keys already present locally are skipped without downloading (stored data is append-only, so they are final), and nothing is ever overwritten or deleted. Raw `books/` and `pricepath/` are skipped unless `--heavy`; `--prefix` (repeatable) narrows to specific prefixes. It uses your normal AWS credentials (`AWS_PROFILE`) and needs `s3:ListBucket` and `s3:GetObject`. `BONDHYPE_BUCKET` can replace `--bucket`.
+`python -m bondhype.pull --bucket <bucket>` mirrors S3 into `data/` with the same key layout, so `local_report`, `build_report` and `verdict` run on it unchanged. It is incremental and read-only on S3: keys already present locally are skipped without downloading (stored data is append-only, so they are final), and nothing is ever overwritten or deleted. Raw `books/` and both price-path layouts are skipped unless `--heavy`, and ledger checkpoints are never pulled (they are derived); `--prefix` (repeatable) narrows to specific prefixes. It uses your normal AWS credentials (`AWS_PROFILE`) and needs `s3:ListBucket` and `s3:GetObject`. `BONDHYPE_BUCKET` can replace `--bucket`.
 
 ## Scan phases, concurrency and logging
 
