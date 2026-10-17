@@ -8,7 +8,7 @@ from pathlib import Path
 from bondhype.config import load_config
 from bondhype.local_scan import _load_env
 from bondhype.reporting import build_report, check_heartbeat, format_report
-from bondhype.storage import ImmutableKey, LocalStorage
+from bondhype.storage import LocalStorage
 from bondhype.telegram import TelegramClient
 
 
@@ -40,11 +40,9 @@ def main() -> None:
         print(beat.message)
     else:
         text = format_report(build_report(storage, config, now))
-        if not args.dry_run:
-            try:
-                storage.put(f"reports/date={now:%Y-%m-%d}/report.txt", text.encode())
-            except ImmutableKey:
-                pass  # today's report was already stored; the first one stays the record
+        key = f"reports/date={now:%Y-%m-%d}/report.txt"
+        if not args.dry_run and not storage.exists(key):  # the first stored report stays
+            storage.put(key, text.encode())
         send(text)
 
 

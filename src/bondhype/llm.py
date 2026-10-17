@@ -9,7 +9,6 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from bondhype.pricing import Pricing, UnknownModel, Usage, call_cost
-from bondhype.storage import Storage
 
 logger = logging.getLogger(__name__)
 
@@ -87,11 +86,16 @@ def _parse(reply: str) -> Verdict:
     )
 
 
-def _key(prompt: Prompt, market_id: str, now: datetime) -> str:
-    return (
-        f"llm_calls/date={now:%Y-%m-%d}/market={market_id}/{prompt.id}/"
-        f"scan={now:%Y-%m-%dT%H:%M:%SZ}.json"
-    )
+@dataclass(frozen=True)
+class ReviewResult:
+    """The verdict, and the full call record (input, every attempt's output, usage and cost)."""
+
+    verdict: Verdict
+    record: dict
+
+    @property
+    def cost_usd(self) -> float | None:
+        return self.record["cost_usd"]
 
 
 def review(
@@ -101,17 +105,11 @@ def review(
     *,
     model: str,
     pricing: Pricing,
-    storage: Storage,
     market_id: str,
     config_version: str,
     now: datetime,
-) -> Verdict:
-    """Ask the model once per (market, prompt, scan); a retried scan reuses the stored verdict."""
-    key = _key(prompt, market_id, now)
-    if storage.exists(key):
-        stored = Verdict(**_stored_verdict(json.loads(storage.get(key))["verdict"]))
-        logger.info("llm %s %s -> %s (cached)", prompt.id, market_id, stored.verdict)
-        return stored
+) -> ReviewResult:
+    """Ask the model, retrying once on a failed call or an invalid reply; then `error`."""
     started = time.monotonic()
     user = json.dumps(snapshot, sort_keys=True)
     attempts = []
@@ -140,13 +138,13 @@ def review(
         "prompt_id": prompt.id,
         "model": model,
         "config_version": config_version,
+        "scan_at": now.isoformat(),
         "system": prompt.system,
         "user": user,
         "attempts": attempts,
         "cost_usd": _total_cost(attempts),
         "verdict": asdict(verdict),
     }
-    storage.put(key, json.dumps(record, sort_keys=True).encode())
     logger.info(
         "llm %s %s -> %s in %.1fs",
         prompt.id,
@@ -154,7 +152,7 @@ def review(
         verdict.verdict,
         time.monotonic() - started,
     )
-    return verdict
+    return ReviewResult(verdict, record)
 
 
 def _billing(usage: Usage, model: str, pricing: Pricing, now: datetime) -> dict:
@@ -172,7 +170,3 @@ def _total_cost(attempts: list[dict]) -> float | None:
     if any(a["cost_usd"] is None for a in billed):
         return None
     return sum(a["cost_usd"] for a in billed)
-
-
-def _stored_verdict(raw: dict) -> dict:
-    return raw | {"risk_flags": tuple(raw["risk_flags"])}

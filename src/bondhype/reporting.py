@@ -1,4 +1,4 @@
-"""Daily per-arm report and health checks, built from stored files only."""
+"""Daily per-arm report and health checks, built from stored tables and files only."""
 
 import json
 from dataclasses import dataclass
@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from bondhype.arms import ARMS
 from bondhype.config import Config
+from bondhype.decisions import Decision, load_decisions
 from bondhype.ledger import load_ledger
 from bondhype.settlement import STRATEGIES, OverdueReport
 from bondhype.stats import ArmStats, ArmVerdict, arm_stats, verdict
@@ -45,15 +46,16 @@ def _candidates_today(storage: Storage, now: datetime) -> dict[str, int]:
     return counts
 
 
-def _llm_outcomes_today(storage: Storage, now: datetime) -> dict[tuple[str, str], list[bool]]:
-    """Per (prompt id, strategy): whether each of today's calls ended in an error."""
+def _llm_outcomes(decisions: list[Decision]) -> dict[tuple[str, str], list[bool]]:
+    """Per (prompt id, strategy): whether each call ended in an error. A skipped reject prompt
+    was never called."""
     outcomes: dict[tuple[str, str], list[bool]] = {}
-    for key in storage.list(f"llm_calls/date={now:%Y-%m-%d}/"):
-        record = json.loads(storage.get(key))
-        strategy = json.loads(record["user"])["strategy"]
-        outcomes.setdefault((record["prompt_id"], strategy), []).append(
-            record["verdict"]["verdict"] == "error"
-        )
+    for d in decisions:
+        for review in (d.buy, d.reject):
+            if review.verdict.verdict != "skipped":
+                outcomes.setdefault((review.prompt_id, d.strategy), []).append(
+                    review.verdict.verdict == "error"
+                )
     return outcomes
 
 
@@ -70,31 +72,17 @@ def _error_rate(outcomes: list[bool]) -> float | None:
     return sum(outcomes) / len(outcomes) if outcomes else None
 
 
-def _latest_overdue(
-    storage: Storage, arm: str, strategy: str, resolved: set[str]
-) -> list[OverdueReport]:
-    """Newest daily analysis per still-unresolved market (keys sort by market, then date)."""
-    latest: dict[str, OverdueReport] = {}
-    for key in storage.list(f"arms/{arm}/{strategy}/overdue/"):
-        report = OverdueReport.from_json(storage.get(key))
-        if report.market_id not in resolved:
-            latest[report.market_id] = report
-    return list(latest.values())
-
-
 def build_report(storage: Storage, config: Config, now: datetime) -> DailyReport:
     candidates = _candidates_today(storage, now)
-    llm_outcomes = _llm_outcomes_today(storage, now)
-    ledger = load_ledger(storage, now)
+    llm_outcomes = _llm_outcomes(load_decisions(storage).on(now))
+    ledger = load_ledger(storage)
     entries = []
     for strategy in STRATEGIES:
         positions, resolutions, overdue, stats = {}, {}, {}, {}
         for arm in ARMS:
             positions[arm] = ledger.positions(arm, strategy)
             resolutions[arm] = ledger.resolutions(arm, strategy)
-            overdue[arm] = _latest_overdue(
-                storage, arm, strategy, {r.market_id for r in resolutions[arm]}
-            )
+            overdue[arm] = ledger.overdue(arm, strategy)
             stats[arm] = arm_stats(positions[arm], resolutions[arm], overdue[arm], config.gate)
         verdicts = verdict(stats, config.gate, config.portfolio.starting_balance_usd)
         for arm in ARMS:

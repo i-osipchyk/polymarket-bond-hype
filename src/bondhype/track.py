@@ -4,10 +4,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from bondhype.books import BookFetchError
-from bondhype.ledger import load_ledger
+from bondhype.ledger import Ledger, load_ledger, save_ledger
 from bondhype.portfolio import PositionOpened
-from bondhype.settlement import resolution_key, resolve
-from bondhype.storage import ImmutableKey, Storage
+from bondhype.settlement import resolve
+from bondhype.storage import Storage
 
 
 def pricepath_key(now: datetime) -> str:
@@ -48,7 +48,7 @@ class TrackSummary:
 
 
 def _track_market(
-    storage: Storage,
+    ledger: Ledger,
     market_id: str,
     positions: list[PositionOpened],
     fetch_market: Callable[[str], dict],
@@ -64,8 +64,7 @@ def _track_market(
         if resolution is None:
             still_open.append(position)
             continue
-        key = resolution_key(position.arm, position.strategy, market_id)
-        storage.put(key, resolution.to_json())
+        ledger.add_resolution(resolution)
         summary.settled += 1
     if not still_open:
         return None
@@ -78,27 +77,27 @@ def track(
     fetch_book: Callable[[str], dict],
     now: datetime,
 ) -> TrackSummary:
-    """Each market is fetched once however many arms hold it; price points go to one file."""
+    """Each market is fetched once however many arms hold it. Resolutions go into the trades
+    table, written once at the end; price points go to one file per run."""
     summary = TrackSummary()
+    ledger = load_ledger(storage)
     by_market: dict[str, list[PositionOpened]] = {}
-    for position in load_ledger(storage, now).unsettled():
+    for position in ledger.unsettled():
         by_market.setdefault(position.market_id, []).append(position)
     points = []
     for market_id, positions in by_market.items():
         try:
             point = _track_market(
-                storage, market_id, positions, fetch_market, fetch_book, now, summary
+                ledger, market_id, positions, fetch_market, fetch_book, now, summary
             )
         except (OSError, ValueError, KeyError) as exc:
             summary.errors.append((market_id, repr(exc)))
             continue
         if point is not None:
             points.append(point)
+    save_ledger(storage, ledger)
     if points:
         data = "".join(json.dumps(p, sort_keys=True) + "\n" for p in points).encode()
-        try:
-            storage.put(pricepath_key(now), data)
-        except ImmutableKey:
-            return summary  # an earlier run this hour already recorded the points
+        storage.put(pricepath_key(now), data)  # a rerun this hour replaces the run's points
         summary.snapshotted = sum(len(p["holders"]) for p in points)
     return summary

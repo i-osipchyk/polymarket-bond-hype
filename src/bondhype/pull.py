@@ -9,6 +9,8 @@ from pathlib import Path
 from tqdm import tqdm
 
 from bondhype.arms import ARMS
+from bondhype.decisions import DECISIONS_KEY
+from bondhype.ledger import TRADES_KEY
 from bondhype.settlement import STRATEGIES
 from bondhype.storage import LocalStorage, S3Storage, Storage
 
@@ -19,12 +21,17 @@ class PullSummary:
     skipped: int
 
 
+# Rewritten by every run, so always downloaded again; every other key is written once.
+TABLES = (TRADES_KEY, DECISIONS_KEY)
+
+
 def default_prefixes(include_heavy: bool = False) -> list[str]:
     """Everything for analysis; raw books and price paths are large, so they are opt-in.
 
-    Ledger checkpoints under state/ledger/ are derived from the per-record files and skipped.
+    The per-record files under arms/ and state/cooldowns/ are the layout before the tables, kept
+    for history. Old ledger checkpoints under state/ledger/ are derived and skipped.
     """
-    prefixes = ["markets/", "candidates/", "llm_calls/", "reports/", "state/cooldowns/"]
+    prefixes = [*TABLES, "markets/", "candidates/", "llm_calls/", "reports/", "state/cooldowns/"]
     heavy = ["books/", "pricepath/"]
     for arm in ARMS:
         for strategy in STRATEGIES:
@@ -44,8 +51,8 @@ def pull(
 ) -> PullSummary:
     prefixes = default_prefixes() if prefixes is None else prefixes
     wanted = [key for prefix in prefixes for key in source.list(prefix)]
-    # stored data is append-only, so a local copy is already final
-    missing = [key for key in wanted if not dest.exists(key)]
+    # everything but the tables is written once, so a local copy of it is already final
+    missing = [key for key in wanted if key in TABLES or not dest.exists(key)]
 
     def copy(key: str) -> None:
         dest.put(key, source.get(key))

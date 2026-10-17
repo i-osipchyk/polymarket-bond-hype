@@ -1,3 +1,5 @@
+import hashlib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -9,8 +11,16 @@ class KeyNotFound(KeyError):
     """No object is stored under the requested key."""
 
 
-class ImmutableKey(Exception):
-    """A key already holds different bytes; stored data is append-only."""
+class StaleWrite(Exception):
+    """The object changed since it was read (or appeared since it was found missing)."""
+
+
+@dataclass(frozen=True)
+class Versioned:
+    """An object's bytes and the version they were read at; both None if it does not exist."""
+
+    data: bytes | None
+    version: str | None
 
 
 class Storage(Protocol):
@@ -18,26 +28,38 @@ class Storage(Protocol):
     def get(self, key: str) -> bytes: ...
     def exists(self, key: str) -> bool: ...
     def list(self, prefix: str) -> list[str]: ...
+    def read_versioned(self, key: str) -> Versioned: ...
+    def write_versioned(self, key: str, data: bytes, version: str | None) -> str: ...
+
+
+def _digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
 class LocalStorage:
     def __init__(self, root: Path):
         self._root = Path(root)
 
-    def put(self, key: str, data: bytes) -> None:
+    # Versioned calls use these rather than put/get, so each call is one request, as on S3.
+    def _write(self, key: str, data: bytes) -> None:
         path = self._root / key
-        if path.is_file():
-            if path.read_bytes() != data:
-                raise ImmutableKey(key)
-            return
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
 
-    def get(self, key: str) -> bytes:
+    def _read(self, key: str) -> bytes | None:
         try:
             return (self._root / key).read_bytes()
         except FileNotFoundError:
-            raise KeyNotFound(key) from None
+            return None
+
+    def put(self, key: str, data: bytes) -> None:
+        self._write(key, data)
+
+    def get(self, key: str) -> bytes:
+        data = self._read(key)
+        if data is None:
+            raise KeyNotFound(key)
+        return data
 
     def exists(self, key: str) -> bool:
         return (self._root / key).is_file()
@@ -49,6 +71,17 @@ class LocalStorage:
             if path.is_file() and path.relative_to(self._root).as_posix().startswith(prefix)
         )
 
+    def read_versioned(self, key: str) -> Versioned:
+        data = self._read(key)
+        return Versioned(data, None if data is None else _digest(data))
+
+    def write_versioned(self, key: str, data: bytes, version: str | None) -> str:
+        current = self._read(key)
+        if (None if current is None else _digest(current)) != version:
+            raise StaleWrite(key)
+        self._write(key, data)
+        return _digest(data)
+
 
 class S3Storage:
     """Same contract as LocalStorage, backed by an S3 bucket."""
@@ -58,17 +91,7 @@ class S3Storage:
         self._s3 = client or boto3.client("s3")
 
     def put(self, key: str, data: bytes) -> None:
-        """One conditional request for a new key; only an existing key costs a read."""
-        try:
-            self._s3.put_object(Bucket=self._bucket, Key=key, Body=data, IfNoneMatch="*")
-        except ClientError as exc:
-            if exc.response["Error"]["Code"] not in (
-                "PreconditionFailed",
-                "ConditionalRequestConflict",
-            ):
-                raise
-            if self.get(key) != data:
-                raise ImmutableKey(key) from None
+        self._s3.put_object(Bucket=self._bucket, Key=key, Body=data)
 
     def get(self, key: str) -> bytes:
         try:
@@ -94,3 +117,27 @@ class S3Storage:
         ):
             keys.extend(obj["Key"] for obj in page.get("Contents", []))
         return sorted(keys)
+
+    def read_versioned(self, key: str) -> Versioned:
+        """One GetObject; the version is the ETag."""
+        try:
+            response = self._s3.get_object(Bucket=self._bucket, Key=key)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "NoSuchKey":
+                return Versioned(None, None)
+            raise
+        return Versioned(response["Body"].read(), response["ETag"])
+
+    def write_versioned(self, key: str, data: bytes, version: str | None) -> str:
+        """One conditional PutObject: If-Match the version read, or If-None-Match for a new key."""
+        condition = {"IfNoneMatch": "*"} if version is None else {"IfMatch": version}
+        try:
+            response = self._s3.put_object(Bucket=self._bucket, Key=key, Body=data, **condition)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] in (
+                "PreconditionFailed",
+                "ConditionalRequestConflict",
+            ):
+                raise StaleWrite(key) from None
+            raise
+        return response["ETag"]

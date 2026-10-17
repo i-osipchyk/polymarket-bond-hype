@@ -5,8 +5,7 @@ from bondhype.config import Config
 from bondhype.fills import UnsupportedFeeSchedule, simulate_fill
 from bondhype.ledger import Ledger
 from bondhype.models import Book, Market
-from bondhype.portfolio import PositionOpened, position_key
-from bondhype.storage import Storage
+from bondhype.portfolio import PositionOpened
 
 
 @dataclass(frozen=True)
@@ -16,7 +15,6 @@ class EntryResult:
 
 
 def open_position(
-    storage: Storage,
     config: Config,
     ledger: Ledger,
     *,
@@ -27,8 +25,8 @@ def open_position(
     book: Book,
     now: datetime,
 ) -> EntryResult:
-    """Checks run against the in-memory ledger, which the new position is added to."""
-    key = position_key(arm, strategy, market.id)
+    """Checks run against the in-memory ledger, which the new position is added to; the caller
+    saves the ledger once at the end of the run."""
     if ledger.holds(arm, strategy, market.id):
         return EntryResult(position=None, rejection="duplicate_position")
     portfolio = ledger.portfolio(config, arm, strategy)
@@ -60,6 +58,5 @@ def open_position(
         fee_usd=fill.fee_usd,
         partial=fill.partial,
     )
-    storage.put(key, position.to_json())
-    ledger.add_position(key, position)
+    ledger.add_position(position)
     return EntryResult(position=position, rejection=None)

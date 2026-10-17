@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 
 from bondhype.config import load_config
-from bondhype.overdue import overdue_key
-from bondhype.portfolio import position_key
+from bondhype.decisions import Review, load_decisions, save_decisions
+from bondhype.ledger import load_ledger, save_ledger
+from bondhype.llm import Verdict
 from bondhype.reporting import build_report, check_heartbeat, format_report
-from bondhype.settlement import resolution_key
 from bondhype.storage import LocalStorage
-from builders import NOW, make_overdue, make_position, make_resolution
+from builders import NOW, make_decision, make_overdue, make_position, make_resolution
 
 CONFIG = load_config(Path(__file__).parent / "fixtures" / "config_valid.yaml")
 
@@ -20,10 +20,14 @@ def storage(tmp_path):
     return LocalStorage(tmp_path)
 
 
+def _update_ledger(storage, change):
+    ledger = load_ledger(storage)
+    change(ledger)
+    save_ledger(storage, ledger)
+
+
 def _store_position(storage, position):
-    storage.put(
-        position_key(position.arm, position.strategy, position.market_id), position.to_json()
-    )
+    _update_ledger(storage, lambda ledger: ledger.add_position(position))
 
 
 def _store_scan(storage, when, selections):
@@ -62,8 +66,7 @@ def test_report_counts_todays_candidates_and_trades_per_arm_and_strategy(storage
 
 
 def _store_resolution(storage, resolution):
-    key = resolution_key(resolution.arm, resolution.strategy, resolution.market_id)
-    storage.put(key, resolution.to_json())
+    _update_ledger(storage, lambda ledger: ledger.add_resolution(resolution))
 
 
 def test_report_carries_cumulative_stats_and_the_gate_verdict_per_arm(storage):
@@ -88,9 +91,7 @@ def test_report_carries_cumulative_stats_and_the_gate_verdict_per_arm(storage):
 
 def _store_overdue(storage, position, when, **overrides):
     report = make_overdue(position, **overrides)
-    storage.put(
-        overdue_key(position.arm, position.strategy, position.market_id, when), report.to_json()
-    )
+    _update_ledger(storage, lambda ledger: ledger.set_overdue(report, when.date()))
 
 
 def test_report_lists_overdue_positions_with_their_latest_status_and_counts_them_as_losses(storage):
@@ -115,17 +116,20 @@ def test_report_lists_overdue_positions_with_their_latest_status_and_counts_them
     assert entry.stats.n_overdue == 1
 
 
+def _review(prompt_id, verdict):
+    return Review(prompt_id, Verdict(verdict, (), None, "r"), None)
+
+
 def _store_llm_call(storage, when, market, prompt_id, verdict, strategy="bond"):
-    key = (
-        f"llm_calls/date={when:%Y-%m-%d}/market={market}/{prompt_id}/"
-        f"scan={when:%Y-%m-%dT%H:%M:%SZ}.json"
-    )
-    record = {
-        "prompt_id": prompt_id,
-        "user": json.dumps({"strategy": strategy}),
-        "verdict": {"verdict": verdict},
+    """One decision row in which only `prompt_id` was called; the other prompt is skipped."""
+    called = _review(prompt_id, verdict)
+    reviews = {
+        "buy": called if prompt_id.startswith("buy") else _review("buy_v1", "skipped"),
+        "reject": called if prompt_id.startswith("reject") else _review("reject_v1", "skipped"),
     }
-    storage.put(key, json.dumps(record).encode())
+    log = load_decisions(storage)
+    log.add(make_decision(market, scan_at=when, strategy=strategy, **reviews))
+    save_decisions(storage, log)
 
 
 def test_report_gives_each_llm_arm_its_prompts_error_rate_for_today(storage):

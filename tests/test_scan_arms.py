@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+from dataclasses import asdict
 from datetime import timedelta
 from pathlib import Path
 
@@ -8,8 +9,9 @@ import pytest
 
 from bondhype.arms import ARMS
 from bondhype.config import load_config
+from bondhype.decisions import load_decisions
+from bondhype.ledger import load_ledger, save_ledger
 from bondhype.llm import Completion, LLMSetup, Prompt
-from bondhype.portfolio import position_key, positions_prefix
 from bondhype.pricing import load_pricing
 from bondhype.scan import scan
 from bondhype.storage import LocalStorage
@@ -74,13 +76,23 @@ def run_scan(storage, llm, now=NOW, ask=None, config=CONFIG):
 
 
 def positions(storage, strategy="bond") -> dict[str, dict]:
+    ledger = load_ledger(storage)
     found = {}
     for arm in ARMS:
-        keys = storage.list(positions_prefix(arm, strategy))
-        if keys:
-            (key,) = keys
-            found[arm] = json.loads(storage.get(key))
+        held = ledger.positions(arm, strategy)
+        if held:
+            (position,) = held
+            found[arm] = asdict(position)
     return found
+
+
+def llm_records(storage) -> list[dict]:
+    """Every call record in the audit files, one file per scan attempt."""
+    return [
+        json.loads(line)
+        for key in storage.list("llm_calls/")
+        for line in storage.get(key).decode().splitlines()
+    ]
 
 
 def test_both_prompts_buy_opens_a_position_in_every_arm_at_the_same_entry_price(tmp_path):
@@ -129,7 +141,8 @@ def test_both_prompts_are_called_once_per_candidate_and_stored(tmp_path):
     run_scan(storage, llm)
 
     assert sorted(c["system"] for c in client.calls) == ["buy-by-default", "reject-by-default"]
-    assert len(storage.list("llm_calls/")) == 2
+    assert len(storage.list("llm_calls/")) == 1  # one audit file for the whole scan
+    assert sorted(r["prompt_id"] for r in llm_records(storage)) == ["buy_v1", "reject_v1"]
 
 
 def prompts_called(client) -> list[str]:
@@ -143,7 +156,7 @@ def test_the_buy_prompt_runs_first_and_a_no_from_it_skips_the_reject_prompt(tmp_
     run_scan(storage, llm)
 
     assert prompts_called(client) == ["buy-by-default"]
-    assert [key.split("/")[3] for key in storage.list("llm_calls/")] == ["buy_v1"]
+    assert [r["prompt_id"] for r in llm_records(storage)] == ["buy_v1"]
     assert set(positions(storage)) == {"baseline"}
 
 
@@ -239,10 +252,15 @@ def fill_event_cap(storage):
     """Gives every arm the maximum open positions in the fixture market's event."""
     market, _ = bond_market_and_books()
     event_id = market["events"][0]["id"]
+    ledger = load_ledger(storage)
     for arm in ARMS:
         for i in range(CONFIG.portfolio.max_positions_per_event):
-            seed = make_position(f"seed-{i}", arm=arm, event_id=event_id)
-            storage.put(position_key(arm, "bond", seed.market_id), seed.to_json())
+            ledger.add_position(make_position(f"seed-{i}", arm=arm, event_id=event_id))
+    save_ledger(storage, ledger)
+
+
+def held(storage, arm, strategy="bond") -> int:
+    return len(load_ledger(storage).positions(arm, strategy))
 
 
 def test_an_arm_whose_entry_is_refused_is_cached_like_a_rejection(tmp_path):
@@ -251,7 +269,7 @@ def test_an_arm_whose_entry_is_refused_is_cached_like_a_rejection(tmp_path):
     llm, client = setup("buy", "buy")
     run_scan(storage, llm)
     # every entry hit the event cap: only the seeded positions exist
-    assert all(len(storage.list(positions_prefix(arm, "bond"))) == 5 for arm in ARMS)
+    assert all(held(storage, arm) == 5 for arm in ARMS)
     calls = len(client.calls)
 
     run_scan(storage, llm, now=NOW + timedelta(minutes=15))
@@ -291,18 +309,20 @@ def test_an_arm_that_already_holds_the_market_is_not_charged_again(tmp_path):
     run_scan(storage, llm, now=NOW + timedelta(minutes=15))
 
     assert len(client.calls) == calls
-    assert all(len(storage.list(f"arms/{arm}/bond/positions/")) == 1 for arm in ARMS)
+    assert all(held(storage, arm) == 1 for arm in ARMS)
 
 
-def test_a_retried_scan_is_idempotent(tmp_path):
+def test_a_retried_scan_keeps_its_positions_and_every_attempts_llm_spend(tmp_path):
     storage = LocalStorage(tmp_path)
-    llm, _ = setup("buy", "buy")
-    run_scan(storage, llm)
-    before = {key: storage.get(key) for key in storage.list("")}
+    run_scan(storage, setup("buy", "reject")[0])  # the buy prompt says no: only baseline opens
+    first = positions(storage)
 
-    run_scan(storage, setup("reject", "reject")[0])
+    run_scan(storage, setup("buy", "reject")[0])  # same scan time: the retry calls again
 
-    assert {key: storage.get(key) for key in storage.list("")} == before
+    assert positions(storage) == first
+    assert len(storage.list("llm_calls/")) == 2  # each attempt's calls and costs are kept
+    (decision,) = load_decisions(storage).decisions  # the retry replaces its own row
+    assert decision.scan_at == NOW
 
 
 def test_llm_input_is_a_stored_snapshot_with_resolution_rules_and_filter_values(tmp_path):
@@ -355,8 +375,8 @@ def test_llm_reviews_run_concurrently_and_the_outcome_is_unchanged(tmp_path):
     scan(raws, lambda token: books[token], storage, CONFIG, NOW, llm=llm)
 
     for arm in ARMS:
-        assert len(storage.list(positions_prefix(arm, "bond"))) == 2
-    assert len(storage.list("llm_calls/")) == 4
+        assert held(storage, arm) == 2
+    assert len(llm_records(storage)) == 4
 
 
 def test_worker_count_comes_from_config(tmp_path):
@@ -385,3 +405,85 @@ def test_the_run_logs_candidates_llm_calls_and_opened_positions(tmp_path, caplog
     assert f"llm {BUY_PROMPT.id} {market['id']} -> buy" in log
     assert f"llm {REJECT_PROMPT.id} {market['id']} -> reject" in log
     assert f"opened prompt_buy/bond NO on {market['id']}" in log
+
+
+def test_each_reviewed_candidate_gets_a_decision_row_with_verdicts_costs_and_arm_outcomes(tmp_path):
+    storage = LocalStorage(tmp_path)
+
+    market = run_scan(storage, setup("reject", "buy")[0])
+
+    (d,) = load_decisions(storage).decisions
+    assert (d.scan_at, d.market_id, d.strategy, d.side, d.ask) == (
+        NOW,
+        market["id"],
+        "bond",
+        "NO",
+        0.93,
+    )
+    assert (d.buy.prompt_id, d.buy.verdict.verdict) == ("buy_v1", "buy")
+    assert (d.reject.prompt_id, d.reject.verdict.verdict) == ("reject_v1", "reject")
+    assert d.outcomes == {
+        "prompt_reject": "rejected",
+        "prompt_buy": "opened",
+        "mix_and": "rejected",
+        "mix_or": "opened",
+    }
+    assert d.config_version == CONFIG.version and d.model == CONFIG.llm.model
+
+
+def test_a_skipped_reject_prompt_is_recorded_as_skipped(tmp_path):
+    storage = LocalStorage(tmp_path)
+
+    run_scan(storage, setup("buy", "reject")[0])
+
+    (d,) = load_decisions(storage).decisions
+    assert d.reject.verdict.verdict == "skipped" and d.reject.cost_usd is None
+
+
+def test_a_candidate_no_llm_arm_can_trade_gets_no_decision_row(tmp_path):
+    storage = LocalStorage(tmp_path)
+    run_scan(storage, setup("buy", "buy")[0])
+
+    run_scan(storage, setup("buy", "buy")[0], now=NOW + timedelta(hours=1))
+
+    assert [d.scan_at for d in load_decisions(storage).decisions] == [NOW]
+
+
+def test_a_scan_reads_and_writes_each_table_once_and_writes_one_audit_file(tmp_path):
+    from counting import CountingStorage
+
+    storage = CountingStorage(tmp_path)
+    run_scan(storage, setup("reject", "reject")[0])
+    storage.reset()
+
+    run_scan(storage, setup("buy", "buy")[0], now=NOW + timedelta(hours=1), ask=0.90)
+
+    assert storage.calls == {"read_versioned": 2, "write_versioned": 2, "put": 2}
+    assert sorted(storage.got) == ["state/decisions.csv", "state/trades.csv"]
+
+
+class FailingSecondCall:
+    """A good reply, then an unexpected crash (not an LLMError, so nothing catches it)."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def complete(self, *, model, system, user):
+        self.calls += 1
+        if self.calls > 1:
+            raise RuntimeError("boom")
+        return Completion(verdict_json("reject"))
+
+
+def test_the_calls_that_finished_are_still_saved_when_a_later_one_crashes(tmp_path):
+    storage = LocalStorage(tmp_path)
+    raws, books = several_markets(2)
+    serial = CONFIG.model_copy(update={"llm": CONFIG.llm.model_copy(update={"max_workers": 1})})
+    llm = LLMSetup(
+        client=FailingSecondCall(), reject=REJECT_PROMPT, buy=BUY_PROMPT, pricing=PRICING
+    )
+
+    with pytest.raises(RuntimeError):
+        scan(raws, lambda token: books[token], storage, serial, NOW, llm=llm)
+
+    assert len(llm_records(storage)) == 1

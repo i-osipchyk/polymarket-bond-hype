@@ -5,20 +5,18 @@ import pytest
 
 from bondhype.config import load_config
 from bondhype.entry import open_position
-from bondhype.ledger import load_ledger
+from bondhype.ledger import Ledger
 from bondhype.models import Book, FeeSchedule
-from bondhype.storage import LocalStorage
 from builders import NOW, make_book, make_market
 
 CONFIG = load_config(Path(__file__).parent / "fixtures" / "config_valid.yaml")
 DEEP_BOOK = make_book(bid=0.92, ask=0.93, ask_size=1000.0)
 
 
-def enter(storage, market=None, book=DEEP_BOOK, arm="baseline", strategy="bond", now=NOW):
+def enter(ledger, market=None, book=DEEP_BOOK, arm="baseline", strategy="bond", now=NOW):
     return open_position(
-        storage,
         CONFIG,
-        load_ledger(storage, now),
+        ledger,
         arm=arm,
         strategy=strategy,
         market=market or make_market(),
@@ -28,10 +26,10 @@ def enter(storage, market=None, book=DEEP_BOOK, arm="baseline", strategy="bond",
     )
 
 
-def test_open_position_logs_every_cost_field_and_updates_the_portfolio(tmp_path):
-    storage = LocalStorage(tmp_path)
+def test_open_position_logs_every_cost_field_and_updates_the_portfolio():
+    ledger = Ledger()
 
-    result = enter(storage)
+    result = enter(ledger)
 
     assert result.rejection is None
     position = result.position
@@ -41,42 +39,40 @@ def test_open_position_logs_every_cost_field_and_updates_the_portfolio(tmp_path)
     assert position.slippage_per_share == pytest.approx(0.0)
     assert position.config_version == "2026-10-04.1"
 
-    stored = json.loads(storage.get("arms/baseline/bond/positions/m1.json"))
-    assert stored["market_id"] == "m1"
-    assert stored["fee_usd"] == pytest.approx(0.035, abs=1e-5)
+    assert ledger.positions("baseline", "bond") == [position]
+    assert ledger.changed
 
-    portfolio = load_ledger(storage, NOW).portfolio(CONFIG, "baseline", "bond")
+    portfolio = ledger.portfolio(CONFIG, "baseline", "bond")
     assert portfolio.exposure_usd == pytest.approx(10.0)
     assert portfolio.balance_usd == pytest.approx(1000 - 10.035, abs=1e-5)
 
 
-def test_second_entry_for_the_same_arm_strategy_and_market_is_a_duplicate(tmp_path):
-    storage = LocalStorage(tmp_path)
-    enter(storage)
-    before = storage.get("arms/baseline/bond/positions/m1.json")
+def test_second_entry_for_the_same_arm_strategy_and_market_is_a_duplicate():
+    ledger = Ledger()
+    first = enter(ledger).position
 
     later_book = make_book(bid=0.93, ask=0.94, ask_size=1000.0)
-    result = enter(storage, book=later_book)
+    result = enter(ledger, book=later_book)
 
     assert result.position is None
     assert result.rejection == "duplicate_position"
-    assert storage.get("arms/baseline/bond/positions/m1.json") == before
+    assert ledger.positions("baseline", "bond") == [first]
 
 
-def test_same_market_may_be_entered_in_another_arm_and_another_strategy(tmp_path):
-    storage = LocalStorage(tmp_path)
-    assert enter(storage, arm="baseline").position is not None
-    assert enter(storage, arm="prompt_buy").position is not None
-    assert enter(storage, arm="baseline", strategy="hype").position is not None
+def test_same_market_may_be_entered_in_another_arm_and_another_strategy():
+    ledger = Ledger()
+    assert enter(ledger, arm="baseline").position is not None
+    assert enter(ledger, arm="prompt_buy").position is not None
+    assert enter(ledger, arm="baseline", strategy="hype").position is not None
 
 
-def test_sixth_position_in_one_event_is_rejected_but_another_event_is_not(tmp_path):
-    storage = LocalStorage(tmp_path)
+def test_sixth_position_in_one_event_is_rejected_but_another_event_is_not():
+    ledger = Ledger()
     for i in range(5):
-        assert enter(storage, make_market(id=f"m{i}", event_id="e1")).position is not None
+        assert enter(ledger, make_market(id=f"m{i}", event_id="e1")).position is not None
 
-    capped = enter(storage, make_market(id="m5", event_id="e1"))
-    other_event = enter(storage, make_market(id="m6", event_id="e2"))
+    capped = enter(ledger, make_market(id="m5", event_id="e1"))
+    other_event = enter(ledger, make_market(id="m6", event_id="e2"))
 
     assert capped.position is None
     assert capped.rejection == "event_cap"
@@ -96,14 +92,14 @@ def test_sixth_position_in_one_event_is_rejected_but_another_event_is_not(tmp_pa
         pytest.param({}, Book(bids=(), asks=()), "no_liquidity", id="empty-book"),
     ],
 )
-def test_entry_fails_closed_and_writes_nothing(tmp_path, market_overrides, book, rejection):
-    storage = LocalStorage(tmp_path)
+def test_entry_fails_closed_and_records_nothing(market_overrides, book, rejection):
+    ledger = Ledger()
 
-    result = enter(storage, make_market(**market_overrides), book=book)
+    result = enter(ledger, make_market(**market_overrides), book=book)
 
     assert result.position is None
     assert result.rejection == rejection
-    assert storage.list("arms/") == []
+    assert ledger.trades == {} and not ledger.changed
 
 
 @pytest.mark.parametrize(
@@ -114,7 +110,7 @@ def test_entry_fails_closed_and_writes_nothing(tmp_path, market_overrides, book,
     ],
 )
 def test_recorded_market_and_book_open_a_position_with_the_markets_own_fee(
-    tmp_path, fixture, best_ask, expected_fee
+    fixture, best_ask, expected_fee
 ):
     from bondhype.books import parse_book
     from bondhype.markets import parse_market
@@ -124,9 +120,7 @@ def test_recorded_market_and_book_open_a_position_with_the_markets_own_fee(
     )
     market = parse_market(recorded["gamma_market"])
     book = parse_book(recorded["clob_book"])
-    storage = LocalStorage(tmp_path)
-
-    result = enter(storage, market, book=book)
+    result = enter(Ledger(), market, book=book)
 
     position = result.position
     assert position.best_ask == best_ask

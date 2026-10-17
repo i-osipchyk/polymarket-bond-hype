@@ -7,7 +7,6 @@ from bondhype.overdue import run_overdue
 from bondhype.reporting import build_report, check_heartbeat, format_report
 from bondhype.runtime import Runtime
 from bondhype.scan import scan
-from bondhype.storage import ImmutableKey
 from bondhype.track import track
 
 
@@ -41,10 +40,9 @@ def run_overdue_job(runtime: Runtime, now: datetime) -> None:
 
 def run_report(runtime: Runtime, now: datetime) -> None:
     text = format_report(build_report(runtime.storage, runtime.config, now))
-    try:
-        runtime.storage.put(f"reports/date={now:%Y-%m-%d}/report.txt", text.encode())
-    except ImmutableKey:
-        pass  # a same-day rerun: the first stored report stays the record
+    key = f"reports/date={now:%Y-%m-%d}/report.txt"
+    if not runtime.storage.exists(key):  # a same-day rerun: the first stored report stays
+        runtime.storage.put(key, text.encode())
     runtime.send(text)
 
 

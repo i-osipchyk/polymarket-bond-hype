@@ -1,54 +1,109 @@
-"""Every position and resolution, loaded once per run.
+"""Every trade in one table, `state/trades.csv`, read once and written at most once per run.
 
-A full read costs one request per stored record, and the ledger only grows, so the scanner leaves
-a checkpoint: one gzipped object holding every record it knew. The next run reads the newest
-checkpoint and fetches only keys written after it. Records are immutable, so any checkpoint is a
-correct subset of the truth; the per-record files stay the source of truth.
+One row per arm, strategy and market: the paper fill, a status, the resolution once there is one,
+and the latest overdue assessment. The scanner adds rows, the tracker resolves them and the
+overdue job annotates them. Writes are conditional on the version read, so two jobs that overlap
+cannot silently drop each other's changes: the later one fails with `StaleWrite` and is retried.
 """
 
-import gzip
-import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date
 
+from bondhype import csvtable as c
 from bondhype.arms import ARMS
 from bondhype.config import Config
-from bondhype.portfolio import Portfolio, PositionOpened, positions_prefix, resolutions_prefix
-from bondhype.settlement import STRATEGIES, Resolution
-from bondhype.storage import ImmutableKey, Storage
+from bondhype.portfolio import Portfolio, PositionOpened, positions_prefix
+from bondhype.settlement import STRATEGIES, OverdueReport, Resolution
+from bondhype.storage import Storage
 
-CHECKPOINT_PREFIX = "state/ledger/"
+TRADES_KEY = "state/trades.csv"
+
+COLUMNS = (
+    "arm",
+    "strategy",
+    "market_id",
+    "status",
+    "event_id",
+    "side",
+    "opened_at",
+    "config_version",
+    "shares",
+    "filled_usd",
+    "avg_price",
+    "best_ask",
+    "slippage_per_share",
+    "gross_edge_per_share",
+    "fee_usd",
+    "partial",
+    "resolved_at",
+    "outcome",
+    "payout_usd",
+    "pnl_usd",
+    "resolved_days_overdue",
+    "resolved_uma_statuses",
+    "overdue_checked_on",
+    "overdue_days",
+    "overdue_closed",
+    "overdue_uma_status",
+    "overdue_uma_statuses",
+    "overdue_held_side_price",
+    "overdue_conservative_pnl_usd",
+)
+
+TradeKey = tuple[str, str, str]  # arm, strategy, market id
 
 
-def _checkpoint_dir(day: datetime) -> str:
-    return f"{CHECKPOINT_PREFIX}date={day:%Y-%m-%d}/"
+class MissingTradesTable(Exception):
+    """trades.csv is absent while per-record files exist: run `bondhype.migrate` first."""
 
 
-def checkpoint_key(now: datetime) -> str:
-    return f"{_checkpoint_dir(now)}scan={now:%Y-%m-%dT%H:%M:%SZ}.json.gz"
+@dataclass
+class Trade:
+    position: PositionOpened
+    resolution: Resolution | None = None
+    overdue: OverdueReport | None = None
+    overdue_checked_on: date | None = None
+
+    @property
+    def status(self) -> str:
+        if self.resolution is not None:
+            return "resolved"
+        return "overdue" if self.overdue is not None else "open"
+
+
+def _key(arm: str, strategy: str, market_id: str) -> TradeKey:
+    return (arm, strategy, market_id)
 
 
 @dataclass
 class Ledger:
-    """Records by storage key, so a checkpoint and a listing can be diffed by key."""
+    trades: dict[TradeKey, Trade] = field(default_factory=dict)
+    version: str | None = None  # the stored version this was read at; None: no table yet
+    changed: bool = False
 
-    position_records: dict[str, PositionOpened] = field(default_factory=dict)
-    resolution_records: dict[str, Resolution] = field(default_factory=dict)
+    def _trades(self, arm: str, strategy: str) -> list[Trade]:
+        return [t for (a, s, _), t in sorted(self.trades.items()) if (a, s) == (arm, strategy)]
 
     def positions(self, arm: str, strategy: str) -> list[PositionOpened]:
-        prefix = positions_prefix(arm, strategy)
-        return [p for k, p in sorted(self.position_records.items()) if k.startswith(prefix)]
+        return [t.position for t in self._trades(arm, strategy)]
 
     def resolutions(self, arm: str, strategy: str) -> list[Resolution]:
-        prefix = resolutions_prefix(arm, strategy)
-        return [r for k, r in sorted(self.resolution_records.items()) if k.startswith(prefix)]
+        return [t.resolution for t in self._trades(arm, strategy) if t.resolution is not None]
+
+    def overdue(self, arm: str, strategy: str) -> list[OverdueReport]:
+        """Latest overdue assessment of each still-unresolved position."""
+        return [
+            t.overdue
+            for t in self._trades(arm, strategy)
+            if t.overdue is not None and t.resolution is None
+        ]
 
     def holds(self, arm: str, strategy: str, market_id: str) -> bool:
-        return f"{positions_prefix(arm, strategy)}{market_id}.json" in self.position_records
+        return _key(arm, strategy, market_id) in self.trades
 
     def is_settled(self, position: PositionOpened) -> bool:
-        key = f"{resolutions_prefix(position.arm, position.strategy)}{position.market_id}.json"
-        return key in self.resolution_records
+        trade = self.trades.get(_key(position.arm, position.strategy, position.market_id))
+        return trade is not None and trade.resolution is not None
 
     def unsettled(self) -> list[PositionOpened]:
         """Open positions in arm, then strategy, then market order."""
@@ -67,48 +122,138 @@ class Ledger:
             self.resolutions(arm, strategy),
         )
 
-    def add_position(self, key: str, position: PositionOpened) -> None:
-        self.position_records[key] = position
+    def add_position(self, position: PositionOpened) -> None:
+        self.trades[_key(position.arm, position.strategy, position.market_id)] = Trade(position)
+        self.changed = True
 
-    def add_resolution(self, key: str, resolution: Resolution) -> None:
-        self.resolution_records[key] = resolution
+    def add_resolution(self, resolution: Resolution) -> None:
+        self.trades[
+            _key(resolution.arm, resolution.strategy, resolution.market_id)
+        ].resolution = resolution
+        self.changed = True
 
-
-def _latest_checkpoint(storage: Storage, now: datetime) -> Ledger:
-    for day in (now, now - timedelta(days=1)):
-        keys = [k for k in storage.list(_checkpoint_dir(day)) if k <= checkpoint_key(now)]
-        if keys:
-            record = json.loads(gzip.decompress(storage.get(keys[-1])))
-            return Ledger(
-                {k: PositionOpened.from_json(v.encode()) for k, v in record["positions"].items()},
-                {k: Resolution.from_json(v.encode()) for k, v in record["resolutions"].items()},
-            )
-    return Ledger()
+    def set_overdue(self, report: OverdueReport, checked_on: date) -> None:
+        trade = self.trades[_key(report.arm, report.strategy, report.market_id)]
+        trade.overdue, trade.overdue_checked_on = report, checked_on
+        self.changed = True
 
 
-def load_ledger(storage: Storage, now: datetime, use_checkpoint: bool = True) -> Ledger:
-    """Newest checkpoint from today or yesterday, plus every record stored since."""
-    ledger = _latest_checkpoint(storage, now) if use_checkpoint else Ledger()
-    for arm in ARMS:
-        for strategy in STRATEGIES:
-            for key in storage.list(positions_prefix(arm, strategy)):
-                if key not in ledger.position_records:
-                    ledger.add_position(key, PositionOpened.from_json(storage.get(key)))
-            for key in storage.list(resolutions_prefix(arm, strategy)):
-                if key not in ledger.resolution_records:
-                    ledger.add_resolution(key, Resolution.from_json(storage.get(key)))
-    return ledger
-
-
-def save_checkpoint(storage: Storage, ledger: Ledger, now: datetime) -> None:
-    record = {
-        "positions": {k: p.to_json().decode() for k, p in sorted(ledger.position_records.items())},
-        "resolutions": {
-            k: r.to_json().decode() for k, r in sorted(ledger.resolution_records.items())
-        },
+def _row(trade: Trade) -> dict[str, str]:
+    p, r, o = trade.position, trade.resolution, trade.overdue
+    return {
+        "arm": p.arm,
+        "strategy": p.strategy,
+        "market_id": p.market_id,
+        "status": trade.status,
+        "event_id": p.event_id,
+        "side": p.side,
+        "opened_at": c.moment(p.opened_at),
+        "config_version": p.config_version,
+        "shares": c.number(p.shares),
+        "filled_usd": c.number(p.filled_usd),
+        "avg_price": c.number(p.avg_price),
+        "best_ask": c.number(p.best_ask),
+        "slippage_per_share": c.number(p.slippage_per_share),
+        "gross_edge_per_share": c.number(p.gross_edge_per_share),
+        "fee_usd": c.number(p.fee_usd),
+        "partial": c.flag(p.partial),
+        "resolved_at": c.moment(r.resolved_at if r else None),
+        "outcome": c.text(r.outcome if r else None),
+        "payout_usd": c.number(r.payout_usd if r else None),
+        "pnl_usd": c.number(r.pnl_usd if r else None),
+        "resolved_days_overdue": c.number(r.days_overdue if r else None),
+        "resolved_uma_statuses": c.items(r.uma_statuses if r else None),
+        "overdue_checked_on": c.moment(trade.overdue_checked_on if o else None),
+        "overdue_days": c.number(o.days_overdue if o else None),
+        "overdue_closed": c.flag(o.closed if o else None),
+        "overdue_uma_status": c.text(o.uma_status if o else None),
+        "overdue_uma_statuses": c.items(o.uma_statuses if o else None),
+        "overdue_held_side_price": c.number(o.held_side_price if o else None),
+        "overdue_conservative_pnl_usd": c.number(o.conservative_pnl_usd if o else None),
     }
-    data = gzip.compress(json.dumps(record, sort_keys=True).encode(), mtime=0)
-    try:
-        storage.put(checkpoint_key(now), data)
-    except ImmutableKey:
-        pass  # a retried run: the first checkpoint is a valid subset and stays
+
+
+def _trade(row: dict[str, str]) -> Trade:
+    position = PositionOpened(
+        arm=row["arm"],
+        strategy=row["strategy"],
+        market_id=row["market_id"],
+        event_id=row["event_id"],
+        side=row["side"],
+        opened_at=c.to_datetime(row["opened_at"]),
+        config_version=row["config_version"],
+        shares=c.to_float(row["shares"]),
+        filled_usd=c.to_float(row["filled_usd"]),
+        avg_price=c.to_float(row["avg_price"]),
+        best_ask=c.to_float(row["best_ask"]),
+        slippage_per_share=c.to_float(row["slippage_per_share"]),
+        gross_edge_per_share=c.to_float(row["gross_edge_per_share"]),
+        fee_usd=c.to_float(row["fee_usd"]),
+        partial=c.to_bool(row["partial"]),
+    )
+    resolution = None
+    if row["resolved_at"]:
+        resolution = Resolution(
+            arm=position.arm,
+            strategy=position.strategy,
+            market_id=position.market_id,
+            side=position.side,
+            config_version=position.config_version,
+            outcome=row["outcome"],
+            payout_usd=c.to_float(row["payout_usd"]),
+            pnl_usd=c.to_float(row["pnl_usd"]),
+            resolved_at=c.to_datetime(row["resolved_at"]),
+            days_overdue=c.to_float(row["resolved_days_overdue"]),
+            uma_statuses=c.to_items(row["resolved_uma_statuses"]),
+        )
+    overdue, checked_on = None, None
+    if row["overdue_checked_on"]:
+        checked_on = date.fromisoformat(row["overdue_checked_on"])
+        overdue = OverdueReport(
+            arm=position.arm,
+            strategy=position.strategy,
+            market_id=position.market_id,
+            config_version=position.config_version,
+            days_overdue=c.to_float(row["overdue_days"]),
+            closed=c.to_bool(row["overdue_closed"]),
+            uma_status=c.opt_text(row["overdue_uma_status"]),
+            uma_statuses=c.to_items(row["overdue_uma_statuses"]),
+            held_side_price=c.to_float(row["overdue_held_side_price"]),
+            conservative_pnl_usd=c.to_float(row["overdue_conservative_pnl_usd"]),
+        )
+    return Trade(position, resolution, overdue, checked_on)
+
+
+def encode_ledger(ledger: Ledger) -> bytes:
+    return c.encode(COLUMNS, (_row(t) for _, t in sorted(ledger.trades.items())))
+
+
+def decode_ledger(data: bytes, version: str | None = None) -> Ledger:
+    trades = [_trade(row) for row in c.decode(COLUMNS, data)]
+    return Ledger(
+        {_key(t.position.arm, t.position.strategy, t.position.market_id): t for t in trades},
+        version=version,
+    )
+
+
+def _has_legacy_records(storage: Storage) -> bool:
+    """Baseline trades every rules-passing candidate, so a store with trades has baseline ones."""
+    return any(storage.list(positions_prefix("baseline", s)) for s in STRATEGIES)
+
+
+def load_ledger(storage: Storage) -> Ledger:
+    """One read. A missing table is an empty ledger only on a store that never had trades."""
+    stored = storage.read_versioned(TRADES_KEY)
+    if stored.data is None:
+        if _has_legacy_records(storage):
+            raise MissingTradesTable(TRADES_KEY)
+        return Ledger()
+    return decode_ledger(stored.data, stored.version)
+
+
+def save_ledger(storage: Storage, ledger: Ledger) -> None:
+    """One conditional write, skipped when nothing changed."""
+    if not ledger.changed:
+        return
+    ledger.version = storage.write_versioned(TRADES_KEY, encode_ledger(ledger), ledger.version)
+    ledger.changed = False

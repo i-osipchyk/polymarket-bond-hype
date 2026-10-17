@@ -1,6 +1,7 @@
 import json
 import logging
 import math
+import uuid
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -9,11 +10,24 @@ from datetime import datetime
 from bondhype.arms import ARMS, route
 from bondhype.books import BookFetchError, ParseError, parse_book
 from bondhype.config import Config
-from bondhype.cooldown import Cooldowns, record_rejection
+from bondhype.decisions import (
+    COOLDOWN,
+    HELD,
+    LLM_ARMS,
+    OPENED,
+    REFUSED,
+    REJECTED,
+    Cooldowns,
+    Decision,
+    DecisionLog,
+    Review,
+    load_decisions,
+    save_decisions,
+)
 from bondhype.entry import open_position
 from bondhype.filters import Attempt, evaluate_market
-from bondhype.ledger import Ledger, load_ledger, save_checkpoint
-from bondhype.llm import LLMSetup, Prompt, Verdict, review
+from bondhype.ledger import Ledger, load_ledger, save_ledger
+from bondhype.llm import LLMSetup, Prompt, ReviewResult, Verdict, review
 from bondhype.markets import parse_market
 from bondhype.models import Book, Market
 from bondhype.storage import Storage
@@ -69,24 +83,28 @@ class _Candidate:
     attempt: Attempt
     book: Book
     pending: list[str]  # arms that could still open this market
+    skipped: dict[str, str]  # LLM arm -> why it cannot (held, cooldown)
     snapshot: dict
 
 
-def _pending_arms(
+def _arm_states(
     market: Market,
     attempt: Attempt,
     ledger: Ledger,
     cooldowns: Cooldowns,
     config: Config,
-    now: datetime,
-) -> list[str]:
+) -> tuple[list[str], dict[str, str]]:
+    """Arms that could still open this market, and why each other LLM arm cannot."""
     strategy, ask = attempt.strategy, attempt.result.values["ask"]
-    return [
-        arm
-        for arm in ARMS
-        if not ledger.holds(arm, strategy, market.id)
-        and (arm == "baseline" or not cooldowns.active(config, arm, strategy, market.id, ask))
-    ]
+    pending, skipped = [], {}
+    for arm in ARMS:
+        if ledger.holds(arm, strategy, market.id):
+            skipped[arm] = HELD
+        elif arm != "baseline" and cooldowns.active(config, arm, strategy, market.id, ask):
+            skipped[arm] = COOLDOWN
+        else:
+            pending.append(arm)
+    return pending, {arm: why for arm, why in skipped.items() if arm in LLM_ARMS}
 
 
 _SKIPPED = Verdict(
@@ -94,65 +112,96 @@ _SKIPPED = Verdict(
 )
 
 
+@dataclass(frozen=True)
+class _Reviews:
+    buy: Review
+    reject: Review  # verdict "skipped" when the buy prompt did not say buy
+
+
+def _as_review(prompt: Prompt, result: ReviewResult) -> Review:
+    return Review(prompt_id=prompt.id, verdict=result.verdict, cost_usd=result.cost_usd)
+
+
 def _review_all(
-    candidates: list[_Candidate], storage: Storage, config: Config, now: datetime, llm: LLMSetup
-) -> dict[str, tuple[Verdict, Verdict]]:
+    candidates: list[_Candidate],
+    config: Config,
+    now: datetime,
+    llm: LLMSetup,
+    records: list[dict],
+) -> dict[str, _Reviews]:
     """Buy prompt for every candidate an LLM arm could still trade; reject prompt only for those
-    it said buy to. Each phase runs concurrently. A skipped reject prompt counts as no buy."""
+    it said buy to. Each phase runs concurrently. A skipped reject prompt counts as no buy.
+    Every finished call's record is appended to `records`, even if a later call raises."""
     to_review = [c for c in candidates if any(arm != "baseline" for arm in c.pending)]
 
-    def run(task: tuple[_Candidate, Prompt]) -> Verdict:
+    def run(task: tuple[_Candidate, Prompt]) -> ReviewResult:
         candidate, prompt = task
-        return review(
+        result = review(
             candidate.snapshot,
             prompt,
             llm.client,
             model=config.llm.model,
             pricing=llm.pricing,
-            storage=storage,
             market_id=candidate.market.id,
             config_version=config.version,
             now=now,
         )
+        records.append(result.record)
+        return result
 
-    def run_all(tasks: list[tuple[_Candidate, Prompt]]) -> list[Verdict]:
+    def run_all(tasks: list[tuple[_Candidate, Prompt]]) -> list[ReviewResult]:
         with ThreadPoolExecutor(max_workers=config.llm.max_workers) as pool:
             return list(pool.map(run, tasks))  # map keeps task order
 
     logger.info("reviewing %d candidates with the buy prompt", len(to_review))
     buy = {
-        c.market.id: v
-        for c, v in zip(to_review, run_all([(c, llm.buy) for c in to_review]), strict=True)
+        c.market.id: _as_review(llm.buy, r)
+        for c, r in zip(to_review, run_all([(c, llm.buy) for c in to_review]), strict=True)
     }
-    bought = [c for c in to_review if buy[c.market.id].verdict == "buy"]
+    bought = [c for c in to_review if buy[c.market.id].verdict.verdict == "buy"]
     logger.info("%d passed the buy prompt, sending them to the reject prompt", len(bought))
     reject = {
-        c.market.id: v
-        for c, v in zip(bought, run_all([(c, llm.reject) for c in bought]), strict=True)
+        c.market.id: _as_review(llm.reject, r)
+        for c, r in zip(bought, run_all([(c, llm.reject) for c in bought]), strict=True)
     }
-    return {c.market.id: (reject.get(c.market.id, _SKIPPED), buy[c.market.id]) for c in to_review}
+    skipped = Review(prompt_id=llm.reject.id, verdict=_SKIPPED, cost_usd=None)
+    return {
+        c.market.id: _Reviews(buy=buy[c.market.id], reject=reject.get(c.market.id, skipped))
+        for c in to_review
+    }
+
+
+def llm_calls_key(now: datetime, run_id: str) -> str:
+    """One audit file per scan attempt, so a retried scan never overwrites the spend it repeats."""
+    return f"llm_calls/date={now:%Y-%m-%d}/scan={now:%Y-%m-%dT%H:%M:%SZ}/run={run_id}.jsonl"
+
+
+def _write_llm_calls(storage: Storage, records: list[dict], now: datetime) -> None:
+    if records:
+        lines = "".join(json.dumps(r, sort_keys=True) + "\n" for r in records)
+        storage.put(llm_calls_key(now, uuid.uuid4().hex[:12]), lines.encode())
 
 
 def _enter_arms(
     candidate: _Candidate,
-    verdicts: tuple[Verdict, Verdict] | None,
+    reviews: _Reviews | None,
     ledger: Ledger,
-    storage: Storage,
+    log: DecisionLog,
     config: Config,
     now: datetime,
 ) -> None:
     market, attempt = candidate.market, candidate.attempt
     strategy, ask = attempt.strategy, attempt.result.values["ask"]
     trading = {"baseline"}
-    if verdicts is not None:
-        trading = route(reject=verdicts[0], buy=verdicts[1])
+    outcomes = dict(candidate.skipped)
+    if reviews is not None:
+        trading = route(reject=reviews.reject.verdict, buy=reviews.buy.verdict)
         for arm in candidate.pending:
             if arm not in trading:
-                record_rejection(storage, arm, strategy, market.id, ask, now)
+                outcomes[arm] = REJECTED
     for arm in candidate.pending:
         if arm in trading:
             entry = open_position(
-                storage,
                 config,
                 ledger,
                 arm=arm,
@@ -164,12 +213,28 @@ def _enter_arms(
             )
             if entry.rejection is None:
                 logger.info("opened %s/%s %s on %s", arm, strategy, attempt.side, market.id)
+                outcomes[arm] = OPENED
                 continue
             logger.warning(
                 "entry refused %s/%s on %s: %s", arm, strategy, market.id, entry.rejection
             )
-            if arm != "baseline":  # a refused entry is cached like a rejection
-                record_rejection(storage, arm, strategy, market.id, ask, now)
+            outcomes[arm] = REFUSED + entry.rejection  # a refused entry cools down like a reject
+    if reviews is not None:
+        log.add(
+            Decision(
+                scan_at=now,
+                config_version=config.version,
+                market_id=market.id,
+                strategy=strategy,
+                side=attempt.side,
+                ask=ask,
+                question=market.question,
+                model=config.llm.model,
+                buy=reviews.buy,
+                reject=reviews.reject,
+                outcomes={arm: o for arm, o in outcomes.items() if arm in LLM_ARMS},
+            )
+        )
 
 
 def _skipped_line(market_id: str, config: Config, **fields) -> str:
@@ -188,9 +253,14 @@ def scan(
     now: datetime,
     llm: LLMSetup | None = None,
 ) -> None:
-    """Evaluate every market, review candidates concurrently, then open positions in order."""
-    ledger = load_ledger(storage, now)
-    cooldowns = Cooldowns(storage)
+    """Evaluate every market, review candidates concurrently, then open positions in order.
+
+    Reads the trades and decisions tables once and writes each once, plus one LLM audit file and
+    one candidates file."""
+    ledger = load_ledger(storage)
+    log = load_decisions(storage)
+    log.begin_scan(now)
+    cooldowns = Cooldowns(log.decisions)
     lines: list[str] = []
     candidates: list[_Candidate] = []
     seen = prescreened = 0
@@ -224,12 +294,14 @@ def scan(
                 selected.result.values["ask"],
                 market.question[:60],
             )
+            pending, skipped = _arm_states(market, selected, ledger, cooldowns, config)
             candidates.append(
                 _Candidate(
                     market=market,
                     attempt=selected,
                     book=books[selected.side],
-                    pending=_pending_arms(market, selected, ledger, cooldowns, config, now),
+                    pending=pending,
+                    skipped=skipped,
                     snapshot=_snapshot(market, selected, now),
                 )
             )
@@ -253,10 +325,17 @@ def scan(
         len(candidates),
     )
 
-    verdicts = _review_all(candidates, storage, config, now, llm) if llm is not None else {}
+    reviews: dict[str, _Reviews] = {}
+    if llm is not None:
+        records: list[dict] = []
+        try:
+            reviews = _review_all(candidates, config, now, llm, records)
+        finally:
+            _write_llm_calls(storage, records, now)  # the spend is kept even if a call raised
     for candidate in candidates:
-        _enter_arms(candidate, verdicts.get(candidate.market.id), ledger, storage, config, now)
-    save_checkpoint(storage, ledger, now)
+        _enter_arms(candidate, reviews.get(candidate.market.id), ledger, log, config, now)
+    save_ledger(storage, ledger)
+    save_decisions(storage, log)
 
     key = f"candidates/date={now:%Y-%m-%d}/scan={now:%Y-%m-%dT%H:%M:%SZ}.jsonl"
     storage.put(key, ("\n".join(lines) + "\n").encode())

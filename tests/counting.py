@@ -34,3 +34,12 @@ class CountingStorage(LocalStorage):
         self.calls["list"] += 1
         self.listed.append(prefix)
         return super().list(prefix)
+
+    def read_versioned(self, key):
+        self.calls["read_versioned"] += 1
+        self.got.append(key)
+        return super().read_versioned(key)
+
+    def write_versioned(self, key, data, version):
+        self.calls["write_versioned"] += 1
+        return super().write_versioned(key, data, version)

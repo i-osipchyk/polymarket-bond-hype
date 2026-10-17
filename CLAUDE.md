@@ -9,7 +9,7 @@ Project: forward test of the Polymarket "bond" and "hype" strategies. Read [READ
 - **Do not change the pinned model, prompt versions or filter thresholds mid-test.** Changes go through the config file with a new version, and every record carries its config version.
 - **Fail closed.** LLM errors, invalid JSON or missing data mean reject, never buy.
 - **The LLM is a veto screener, not a forecaster.** Keep the output schema strict (verdict, fixed-vocabulary risk flags, confidence, reason).
-- **Never delete or mutate stored snapshots or event files.** S3 data is append-only; deterministic keys make retries idempotent.
+- **Never delete stored data.** Trades and LLM decisions live in two state tables (`state/trades.csv`, `state/decisions.csv`) that the jobs rewrite as a whole, always with a conditional write on the version they read; the bucket is versioned, so earlier versions stay recoverable. Everything else (candidates, LLM audit with full I/O and costs, price paths, reports) is written once per run, never one file per record.
 - **Do not add scope the design defers** (Kelly sizing, stops, passive orders, scale-in, web-search arm, dashboard) without asking.
 
 ## Conventions
@@ -20,7 +20,7 @@ Project: forward test of the Polymarket "bond" and "hype" strategies. Read [READ
 - Keep fee, slippage and gross edge as separate logged fields.
 - Arm names: `baseline`, `prompt_reject`, `prompt_buy`, `mix_and`, `mix_or`. Strategy names: `bond`, `hype`. Bond takes priority in the 90–95¢ overlap.
 - Label any analysis outside the primary comparisons (each LLM arm vs baseline, per strategy) as exploratory.
-- Scanner and tracker run with reserved concurrency 1.
+- Jobs that write the trades table never run at the same time: scanner then tracker in the hourly `bondhype-cycle` state machine, overdue at 06:40.
 
 ## Facts to verify rather than assume
 

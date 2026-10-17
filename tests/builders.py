@@ -89,3 +89,29 @@ def make_overdue(position, **overrides):
     )
     fields.update(overrides)
     return OverdueReport(**fields)
+
+
+def make_decision(market_id="m1", *, scan_at=NOW, ask=0.93, outcomes=None, **overrides):
+    from bondhype.decisions import Decision, Review
+    from bondhype.llm import Verdict
+
+    def review(prompt_id, verdict):
+        return Review(
+            prompt_id, Verdict(verdict, ("thin_book",), 3, "a reason, with a comma"), 0.0002
+        )
+
+    fields = dict(
+        scan_at=scan_at,
+        config_version="v1",
+        market_id=market_id,
+        strategy="bond",
+        side="NO",
+        ask=ask,
+        question='Will "X" happen?',
+        model="deepseek-flash",
+        buy=review("buy_v1", "reject"),
+        reject=review("reject_v1", "skipped"),
+        outcomes={"prompt_buy": "rejected"} if outcomes is None else outcomes,
+    )
+    fields.update(overrides)
+    return Decision(**fields)

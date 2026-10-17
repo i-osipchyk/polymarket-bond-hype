@@ -104,3 +104,14 @@ def test_ledger_checkpoints_are_derived_and_never_pulled(tmp_path):
     pull(remote, local, default_prefixes(include_heavy=True))
 
     assert CHECKPOINT not in local.list("")
+
+
+def test_the_tables_are_downloaded_again_on_every_pull(tmp_path):
+    remote = _remote(tmp_path, {"state/trades.csv": b"v1", "state/decisions.csv": b"v1"})
+    local = LocalStorage(tmp_path / "local")
+    pull(remote, local)
+    remote.put("state/trades.csv", b"v2")
+
+    pull(remote, local)
+
+    assert local.get("state/trades.csv") == b"v2"

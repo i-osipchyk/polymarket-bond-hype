@@ -11,7 +11,7 @@ from bondhype.handlers import (
     run_scanner,
     run_tracker,
 )
-from bondhype.portfolio import position_key
+from bondhype.ledger import load_ledger, save_ledger
 from bondhype.runtime import Runtime
 from bondhype.storage import LocalStorage
 from test_settlement import load, position
@@ -53,7 +53,9 @@ def test_scanner_writes_the_scan_output_the_heartbeat_looks_for(tmp_path):
 
 
 def _store(storage, pos):
-    storage.put(position_key(pos.arm, pos.strategy, pos.market_id), pos.to_json())
+    ledger = load_ledger(storage)
+    ledger.add_position(pos)
+    save_ledger(storage, ledger)
 
 
 def test_tracker_settles_resolved_positions_and_stays_quiet_when_nothing_fails(tmp_path):
@@ -63,8 +65,8 @@ def test_tracker_settles_resolved_positions_and_stays_quiet_when_nothing_fails(t
 
     run_tracker(h.runtime, datetime(2026, 11, 10, 12, 0, tzinfo=UTC))
 
-    assert h.storage.list("arms/baseline/bond/resolutions/") == [
-        f"arms/baseline/bond/resolutions/{resolved['id']}.json"
+    assert [r.market_id for r in load_ledger(h.storage).resolutions("baseline", "bond")] == [
+        resolved["id"]
     ]
     assert h.sent == []
 
@@ -83,7 +85,7 @@ def test_tracker_alerts_on_a_failed_market_without_blocking_the_others(tmp_path)
 
     run_tracker(h.runtime, datetime(2026, 11, 10, 12, 0, tzinfo=UTC))
 
-    assert len(h.storage.list("arms/baseline/bond/resolutions/")) == 1
+    assert len(load_ledger(h.storage).resolutions("baseline", "bond")) == 1
     (message,) = h.sent
     assert "tracker" in message.lower()
     assert broken["id"] in message and "gamma down" in message
@@ -103,7 +105,7 @@ def test_overdue_job_records_analyses_and_alerts_on_a_failed_market(tmp_path):
 
     run_overdue_job(h.runtime, datetime(2026, 10, 3, 3, 59, tzinfo=UTC))
 
-    assert len(h.storage.list("arms/baseline/bond/overdue/")) == 1
+    assert len(load_ledger(h.storage).overdue("baseline", "bond")) == 1
     (message,) = h.sent
     assert "overdue" in message.lower() and broken["id"] in message
 

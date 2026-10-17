@@ -2,7 +2,7 @@ import boto3
 import pytest
 from moto import mock_aws
 
-from bondhype.storage import ImmutableKey, KeyNotFound, LocalStorage, S3Storage
+from bondhype.storage import KeyNotFound, LocalStorage, S3Storage, StaleWrite
 
 BUCKET = "bondhype-test"
 
@@ -56,19 +56,46 @@ def test_list_returns_sorted_keys_under_prefix_only(storage):
     assert storage.list("nothing/here/") == []
 
 
-def test_retry_with_identical_bytes_is_idempotent(storage):
-    key = "arms/baseline/bond/positions/m1.json"
-    storage.put(key, b'{"shares": 10}')
-    storage.put(key, b'{"shares": 10}')
-    assert storage.get(key) == b'{"shares": 10}'
+def test_put_overwrites_a_key(storage):
+    key = "candidates/date=2026-10-04/scan=x.jsonl"
+    storage.put(key, b"first attempt")
+    storage.put(key, b"retry")
+    assert storage.get(key) == b"retry"
 
 
-def test_overwriting_a_key_with_different_bytes_is_refused(storage):
-    key = "arms/baseline/bond/positions/m1.json"
-    storage.put(key, b'{"shares": 10}')
-    with pytest.raises(ImmutableKey):
-        storage.put(key, b'{"shares": 11}')
-    assert storage.get(key) == b'{"shares": 10}'
+def test_versioned_read_of_a_missing_key_has_no_data_and_no_version(storage):
+    stored = storage.read_versioned("state/trades.csv")
+    assert (stored.data, stored.version) == (None, None)
+
+
+def test_versioned_write_creates_then_replaces_the_version_it_read(storage):
+    key = "state/trades.csv"
+    first = storage.write_versioned(key, b"v1", None)
+    assert storage.read_versioned(key).version == first
+
+    second = storage.write_versioned(key, b"v2", first)
+
+    stored = storage.read_versioned(key)
+    assert (stored.data, stored.version) == (b"v2", second)
+
+
+def test_versioned_write_refuses_a_key_that_changed_since_it_was_read(storage):
+    key = "state/trades.csv"
+    read_at = storage.write_versioned(key, b"v1", None)
+    storage.write_versioned(key, b"another job", read_at)
+
+    with pytest.raises(StaleWrite):
+        storage.write_versioned(key, b"lost update", read_at)
+    assert storage.get(key) == b"another job"
+
+
+def test_versioned_create_refuses_a_key_that_appeared_meanwhile(storage):
+    key = "state/trades.csv"
+    storage.write_versioned(key, b"another job", None)
+
+    with pytest.raises(StaleWrite):
+        storage.write_versioned(key, b"lost update", None)
+    assert storage.get(key) == b"another job"
 
 
 def test_list_pages_past_a_thousand_keys(storage):
@@ -85,18 +112,19 @@ def requests_made(client) -> list[str]:
     return calls
 
 
-def test_s3_writes_a_new_key_in_one_request(s3_client):
+def test_s3_put_is_one_request(s3_client):
     storage = S3Storage(BUCKET, client=s3_client)
     calls = requests_made(s3_client)
-    storage.put("arms/baseline/bond/positions/m1.json", b'{"shares": 10}')
+    storage.put("candidates/date=2026-10-04/scan=x.jsonl", b"{}")
     assert calls == ["PutObject"]
 
 
-def test_s3_conditional_write_still_refuses_different_bytes(s3_client):
+def test_s3_versioned_read_and_write_are_one_request_each(s3_client):
     storage = S3Storage(BUCKET, client=s3_client)
-    key = "arms/baseline/bond/positions/m1.json"
-    storage.put(key, b'{"shares": 10}')
-    with pytest.raises(ImmutableKey):
-        storage.put(key, b'{"shares": 11}')
-    storage.put(key, b'{"shares": 10}')
-    assert storage.get(key) == b'{"shares": 10}'
+    storage.write_versioned("state/trades.csv", b"v1", None)
+    calls = requests_made(s3_client)
+
+    stored = storage.read_versioned("state/trades.csv")
+    storage.write_versioned("state/trades.csv", b"v2", stored.version)
+
+    assert calls == ["GetObject", "PutObject"]

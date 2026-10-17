@@ -6,9 +6,7 @@ import pytest
 
 from bondhype.books import BookFetchError
 from bondhype.config import load_config
-from bondhype.ledger import load_ledger
-from bondhype.portfolio import position_key
-from bondhype.settlement import Resolution
+from bondhype.ledger import load_ledger, save_ledger
 from bondhype.storage import LocalStorage
 from bondhype.track import track
 from test_settlement import load, position
@@ -17,7 +15,13 @@ NOW = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
 
 
 def store(storage, pos):
-    storage.put(position_key(pos.arm, pos.strategy, pos.market_id), pos.to_json())
+    ledger = load_ledger(storage)
+    ledger.add_position(pos)
+    save_ledger(storage, ledger)
+
+
+def resolutions(storage, arm="baseline", strategy="bond"):
+    return load_ledger(storage).resolutions(arm, strategy)
 
 
 def markets(*raws):
@@ -29,7 +33,7 @@ def no_book(token_id):
     raise AssertionError("no book expected")
 
 
-def test_resolved_position_is_settled_once_and_stored(tmp_path):
+def test_resolved_position_is_settled_once_in_the_trades_table(tmp_path):
     storage = LocalStorage(tmp_path)
     raw = load("settle_resolved_no")
     store(storage, position(raw["id"], arm="mix_or", strategy="hype"))
@@ -37,9 +41,9 @@ def test_resolved_position_is_settled_once_and_stored(tmp_path):
     for _ in range(2):  # a retried run must not duplicate or change the record
         track(storage, markets(raw), no_book, NOW)
 
-    (key,) = storage.list("arms/mix_or/hype/resolutions/")
-    assert key == f"arms/mix_or/hype/resolutions/{raw['id']}.json"
-    stored = Resolution.from_json(storage.get(key))
+    (stored,) = resolutions(storage, "mix_or", "hype")
+    assert stored.market_id == raw["id"]
+    assert load_ledger(storage).trades[("mix_or", "hype", raw["id"])].status == "resolved"
     assert stored.outcome == "win"
     assert stored.pnl_usd == pytest.approx(10.0 - 9.30 - 0.05)
 
@@ -72,7 +76,7 @@ def test_open_position_gets_a_price_point_and_book_snapshot_of_the_held_side(tmp
     assert point["yes_price"] == pytest.approx(0.0005)
     assert point["no_price"] == pytest.approx(0.9995)
     assert point["books"] == {"NO": book}
-    assert storage.list("arms/baseline/bond/resolutions/") == []
+    assert resolutions(storage) == []
 
 
 def test_a_market_held_by_several_arms_is_fetched_and_recorded_once(tmp_path):
@@ -99,17 +103,17 @@ def test_a_market_held_by_several_arms_is_fetched_and_recorded_once(tmp_path):
     assert summary.snapshotted == 3
 
 
-def test_a_retried_run_in_the_same_hour_keeps_the_first_price_file(tmp_path):
+def test_a_rerun_in_the_same_hour_replaces_the_runs_price_file(tmp_path):
     storage = LocalStorage(tmp_path)
     raw = load("settle_overdue_open")
     store(storage, position(raw["id"]))
     track(storage, markets(raw), lambda token: {"bids": [], "asks": []}, NOW)
-    _, first = price_points(storage)
 
     summary = track(storage, markets(raw), lambda token: None, NOW.replace(minute=20))
 
-    assert price_points(storage)[1] == first
-    assert summary.snapshotted == 0
+    _, (point,) = price_points(storage)
+    assert point["observed_at"] == NOW.replace(minute=20).isoformat()
+    assert summary.snapshotted == 1
 
 
 def test_settled_position_is_not_fetched_again(tmp_path):
@@ -138,9 +142,7 @@ def test_a_failed_market_fetch_does_not_block_other_positions(tmp_path):
 
     summary = track(storage, fetch_market, no_book, NOW)
 
-    assert storage.list("arms/baseline/bond/resolutions/") == [
-        f"arms/baseline/bond/resolutions/{resolved['id']}.json"
-    ]
+    assert [r.market_id for r in resolutions(storage)] == [resolved["id"]]
     assert summary.errors == [(broken["id"], "OSError('gamma down')")]
 
 
@@ -165,10 +167,24 @@ def test_settling_frees_exposure_in_the_portfolio_that_entry_reads(tmp_path):
     store(storage, position(raw["id"]))
     config = load_config(Path(__file__).parent / "fixtures" / "config_valid.yaml")
 
-    before = load_ledger(storage, NOW).portfolio(config, "baseline", "bond")
+    before = load_ledger(storage).portfolio(config, "baseline", "bond")
     track(storage, markets(raw), no_book, NOW)
-    after = load_ledger(storage, NOW).portfolio(config, "baseline", "bond")
+    after = load_ledger(storage).portfolio(config, "baseline", "bond")
 
     assert before.exposure_usd == pytest.approx(9.30)
     assert after.exposure_usd == 0.0
     assert after.balance_usd == pytest.approx(1000.0 - 9.30 - 0.05 + 10.0)
+
+
+def test_a_run_reads_and_writes_the_trades_table_once(tmp_path):
+    from counting import CountingStorage
+
+    storage = CountingStorage(tmp_path)
+    resolved, still_open = load("settle_resolved_no"), load("settle_overdue_open")
+    store(storage, position(resolved["id"]))
+    store(storage, position(still_open["id"]))
+    storage.reset()
+
+    track(storage, markets(resolved, still_open), lambda token: None, NOW)
+
+    assert storage.calls == {"read_versioned": 1, "write_versioned": 1, "put": 1}

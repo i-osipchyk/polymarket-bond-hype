@@ -22,17 +22,27 @@ locals {
   ]
 
   # Every job reads storage and the three secrets (the shared runtime builds all of them).
-  # `writes` jobs may put objects; none may ever delete: stored data is append-only.
+  # `writes` jobs may put objects; none may delete. Scanner, tracker and overdue rewrite the
+  # state tables (state/trades.csv, state/decisions.csv) with conditional writes.
   jobs = {
-    scanner   = { schedule = "rate(1 hour)", timeout = 900, reserved = true, writes = true }
-    tracker   = { schedule = "rate(1 hour)", timeout = 600, reserved = true, writes = true }
-    overdue   = { schedule = "cron(0 6 * * ? *)", timeout = 600, reserved = false, writes = true }
-    report    = { schedule = "cron(0 7 * * ? *)", timeout = 300, reserved = false, writes = true }
-    heartbeat = { schedule = "rate(1 hour)", timeout = 60, reserved = false, writes = false }
+    scanner   = { timeout = 900, reserved = true, writes = true }
+    tracker   = { timeout = 600, reserved = true, writes = true }
+    overdue   = { timeout = 600, reserved = false, writes = true }
+    report    = { timeout = 300, reserved = false, writes = true }
+    heartbeat = { timeout = 60, reserved = false, writes = false }
   }
   functions = merge(local.jobs, {
-    alarm = { schedule = null, timeout = 60, reserved = false, writes = false }
+    alarm = { timeout = 60, reserved = false, writes = false }
   })
+
+  # Scanner and tracker run one after the other in the hourly state machine (cycle.tf), on the
+  # hour. Overdue also writes the trades table, so it runs at 06:40, after the 06:00 cycle has
+  # normally finished; report and heartbeat only read the tables.
+  schedules = {
+    overdue   = "cron(40 6 * * ? *)"
+    report    = "cron(0 7 * * ? *)"
+    heartbeat = "rate(1 hour)"
+  }
 }
 
 # ---- storage -------------------------------------------------------------
@@ -157,19 +167,19 @@ resource "aws_lambda_function" "fn" {
 }
 
 resource "aws_cloudwatch_event_rule" "job" {
-  for_each            = local.jobs
+  for_each            = local.schedules
   name                = "bondhype-${each.key}"
-  schedule_expression = each.value.schedule
+  schedule_expression = each.value
 }
 
 resource "aws_cloudwatch_event_target" "job" {
-  for_each = local.jobs
+  for_each = local.schedules
   rule     = aws_cloudwatch_event_rule.job[each.key].name
   arn      = aws_lambda_function.fn[each.key].arn
 }
 
 resource "aws_lambda_permission" "events" {
-  for_each      = local.jobs
+  for_each      = local.schedules
   statement_id  = "AllowEventBridge"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.fn[each.key].function_name
